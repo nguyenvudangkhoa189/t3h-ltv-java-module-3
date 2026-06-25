@@ -1,0 +1,27 @@
+// BƯỚC 1 — Tạo dữ liệu mẫu cho Bài 2 (NoSQL & MongoDB)
+// Chạy bằng mongosh:  mongosh < 01-create-sample-data.mongodb
+// Hoặc mở file trong VS Code (extension "MongoDB for VS Code") và bấm Run.
+// (Nếu dùng MongoDB Compass thì import file sample-data.json thay cho bước này.)
+
+use("shop_db");
+
+// Xóa dữ liệu cũ để chạy lại nhiều lần mà dữ liệu luôn về trạng thái gốc
+db.products.deleteMany({});
+
+db.products.insertMany([
+  { name: "MacBook Pro 14",      price: 1999, category: "laptop",    inStock: true,  tags: ["laptop", "apple"],             specs: { ram: "16GB", cpu: "M3" } },
+  { name: "Laptop Dell XPS 13",  price: 1500, category: "laptop",    inStock: true,  tags: ["laptop", "dell", "ultrabook"], specs: { ram: "16GB", cpu: "i7" } },
+  { name: "iPhone 15",           price: 999,  category: "phone",     inStock: true,  tags: ["phone", "apple"],              specs: { ram: "6GB",  storage: "128GB" } },
+  { name: "Samsung Galaxy S24",  price: 899,  category: "phone",     inStock: false, tags: ["phone", "samsung"],            specs: { ram: "8GB",  storage: "256GB" } },
+  { name: "Laptop HP Pavilion",  price: 800,  category: "laptop",    inStock: true,  tags: ["laptop", "hp"],                specs: { ram: "8GB",  cpu: "i5" } },
+  { name: "Samsung Galaxy Tab",  price: 720,  category: "tablet",    inStock: false, tags: ["tablet", "samsung"] },
+  { name: "iPad Air",            price: 599,  category: "tablet",    inStock: true,  tags: ["tablet", "apple"],             specs: { ram: "8GB",  storage: "64GB" } },
+  { name: "Xiaomi Redmi Note",   price: 299,  category: "phone",     inStock: true,  tags: ["phone", "xiaomi"] },
+  { name: "AirPods Pro",         price: 249,  category: "accessory", inStock: false, tags: ["audio", "apple"] },
+  { name: "Mechanical Keyboard", price: 85,   category: "accessory", inStock: true,  tags: ["keyboard"] },
+  { name: "Logitech Mouse",      price: 30,   category: "accessory", inStock: true,  tags: ["mouse", "logitech"] },
+  { name: "USB-C Cable",         price: 15,   category: "accessory", inStock: true }
+]);
+
+// Kiểm tra import thành công: phải in ra 12
+print("Tổng số document:", db.products.countDocuments({}));

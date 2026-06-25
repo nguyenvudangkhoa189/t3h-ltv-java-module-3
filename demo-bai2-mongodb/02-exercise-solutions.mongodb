@@ -1,0 +1,46 @@
+// BƯỚC 2 — Đáp án phần Bài tập (Phụ lục) — Bài 2 NoSQL & MongoDB
+// Nạp dữ liệu mẫu (chạy 01-create-sample-data.mongodb) trước khi làm.
+// Mỗi câu là một đáp án ĐỘC LẬP — nên chạy riêng từng câu.
+// Các câu 1, 10, 11, 12 làm THAY ĐỔI dữ liệu; muốn về trạng thái gốc thì
+// chạy lại 01-create-sample-data.mongodb.
+
+use("shop_db");
+
+// 1. Thêm một sản phẩm mới
+db.products.insertOne({ name: "Apple Watch", price: 399, category: "accessory", inStock: true });
+
+// 2. Sản phẩm category "phone"
+db.products.find({ category: "phone" });
+
+// 3. price > 500
+db.products.find({ price: { $gt: 500 } });
+
+// 4. price trong [200, 1000]
+db.products.find({ price: { $gte: 200, $lte: 1000 } });
+
+// 5. Tên chứa "Laptop"
+db.products.find({ name: { $regex: "Laptop" } });
+
+// 6. Chỉ lấy name, price; ẩn _id
+db.products.find({}, { name: 1, price: 1, _id: 0 });
+
+// 7. 3 sản phẩm đắt nhất
+db.products.find({}).sort({ price: -1 }).limit(3);
+
+// 8. Có tag "apple"
+db.products.find({ tags: "apple" });
+
+// 9. Không có field specs
+db.products.find({ specs: { $exists: false } });
+
+// 10. Giảm giá iPhone 15 xuống 899
+db.products.updateOne({ name: "iPhone 15" }, { $set: { price: 899 } });
+
+// 11. inStock = false cho mọi accessory
+db.products.updateMany({ category: "accessory" }, { $set: { inStock: false } });
+
+// 12. Xóa sản phẩm hết hàng
+db.products.deleteMany({ inStock: false });
+
+// 13. Đếm sản phẩm có giá > 100
+db.products.countDocuments({ price: { $gt: 100 } });
