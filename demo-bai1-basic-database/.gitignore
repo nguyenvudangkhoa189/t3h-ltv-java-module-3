@@ -1,0 +1,4 @@
+# SQLite database tao ra khi chay demo
+*.db
+*.sqlite
+*.sqlite3
