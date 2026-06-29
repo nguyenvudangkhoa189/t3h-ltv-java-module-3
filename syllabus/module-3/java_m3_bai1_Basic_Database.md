@@ -276,14 +276,14 @@ OFFSET   <vị trí bắt đầu>;
 
 **Toán tử trong điều kiện:**
 
-| Nhóm | Toán tử |
-|------|---------|
-| So sánh | `=`, `<>` (khác), `>`, `>=`, `<`, `<=` |
-| Chuỗi | `LIKE` (vd `'%ick%'`), `IN`, `BETWEEN` |
-| NULL | `IS NULL`, `IS NOT NULL` |
-| Luận lý | `AND`, `OR`, `NOT` |
+| Nhóm | Toán tử | Ý nghĩa |
+|------|---------|---------|
+| So sánh | `=`, `<>` (hoặc `!=`), `>`, `>=`, `<`, `<=` | Bằng / khác / lớn hơn / nhỏ hơn... |
+| Chuỗi & tập hợp | `LIKE`, `IN`, `BETWEEN` | So khớp mẫu / thuộc danh sách / trong khoảng |
+| NULL | `IS NULL`, `IS NOT NULL` | Có / không có giá trị |
+| Luận lý | `AND`, `OR`, `NOT` | Kết hợp / phủ định điều kiện |
 
-**Ví dụ:**
+**Ví dụ cơ bản:**
 
 ```sql
 -- Tất cả cột
@@ -301,6 +301,109 @@ SELECT first_name, last_name FROM patients
 WHERE first_name = 'Rick' AND last_name = 'Bennett';
 
 -- Sắp xếp + giới hạn
+SELECT first_name, weight FROM patients
+ORDER BY weight DESC
+LIMIT 10;
+```
+
+**Ví dụ cho từng toán tử:**
+
+*Nhóm so sánh:*
+
+```sql
+-- = : bằng đúng giá trị
+SELECT first_name, last_name FROM patients
+WHERE first_name = 'Rick';
+
+-- <> (hoặc !=) : khác giá trị
+SELECT first_name, gender FROM patients
+WHERE gender <> 'M';
+
+-- > : lớn hơn
+SELECT first_name, height FROM patients
+WHERE height > 180;
+
+-- >= : lớn hơn hoặc bằng
+SELECT first_name, weight FROM patients
+WHERE weight >= 70;
+
+-- < : nhỏ hơn
+SELECT first_name, height FROM patients
+WHERE height < 150;
+
+-- <= : nhỏ hơn hoặc bằng
+SELECT first_name, weight FROM patients
+WHERE weight <= 50;
+```
+
+*Nhóm chuỗi & tập hợp:*
+
+```sql
+-- LIKE với % : khớp chuỗi con bất kỳ (tên CHỨA 'ick')
+SELECT first_name FROM patients
+WHERE first_name LIKE '%ick%';
+
+-- LIKE với % ở cuối : bắt đầu bằng 'Ja'
+SELECT first_name FROM patients
+WHERE first_name LIKE 'Ja%';
+
+-- LIKE với _ : đúng 1 ký tự bất kỳ ở vị trí đó (vd 'R_ck' khớp 'Rick', 'Rock')
+SELECT first_name FROM patients
+WHERE first_name LIKE 'R_ck';
+
+-- IN : thuộc một trong các giá trị liệt kê
+SELECT first_name, province_id FROM patients
+WHERE province_id IN ('ON', 'QC', 'BC');
+
+-- NOT IN : KHÔNG thuộc danh sách
+SELECT first_name, province_id FROM patients
+WHERE province_id NOT IN ('ON', 'QC');
+
+-- BETWEEN : trong khoảng (bao gồm 2 đầu mút) — height từ 150 đến 180
+SELECT first_name, height FROM patients
+WHERE height BETWEEN 150 AND 180;
+
+-- NOT BETWEEN : ngoài khoảng
+SELECT first_name, height FROM patients
+WHERE height NOT BETWEEN 150 AND 180;
+```
+
+*Nhóm NULL:*
+
+```sql
+-- IS NULL : bệnh nhân CHƯA khai dị ứng (allergies rỗng)
+SELECT first_name, allergies FROM patients
+WHERE allergies IS NULL;
+
+-- IS NOT NULL : bệnh nhân CÓ ghi dị ứng
+SELECT first_name, allergies FROM patients
+WHERE allergies IS NOT NULL;
+```
+
+*Nhóm luận lý:*
+
+```sql
+-- AND : cả hai điều kiện cùng đúng
+SELECT first_name, last_name FROM patients
+WHERE first_name = 'Rick' AND last_name = 'Bennett';
+
+-- OR : chỉ cần một điều kiện đúng
+SELECT first_name, city FROM patients
+WHERE city = 'Toronto' OR city = 'Hamilton';
+
+-- NOT : phủ định điều kiện (không phải nam giới)
+SELECT first_name, gender FROM patients
+WHERE NOT gender = 'M';
+
+-- Kết hợp AND + OR (dùng ngoặc để rõ thứ tự ưu tiên)
+SELECT first_name, gender, city FROM patients
+WHERE gender = 'F' AND (city = 'Toronto' OR city = 'Ajax');
+```
+
+*Kết hợp với sắp xếp & giới hạn:*
+
+```sql
+-- Sắp xếp giảm dần theo cân nặng, lấy 10 dòng đầu
 SELECT first_name, weight FROM patients
 ORDER BY weight DESC
 LIMIT 10;
