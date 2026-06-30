@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Chi tiết Movie')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main>
+    <p class="success" th:if="${message}" th:text="${message}"></p>
+    <h1 th:text="${movie.title}">Title</h1>
+    <ul>
+        <li>ID: <span th:text="${movie.id}"></span></li>
+        <li>Năm: <span th:text="${movie.year}"></span></li>
+        <li>Thể loại: <span th:text="${movie.genre != null ? #strings.listJoin(movie.genre, ', ') : ''}"></span></li>
+        <li>Đạo diễn: <span th:text="${movie.director}"></span></li>
+        <li>Rating: <span th:text="${movie.rating}"></span></li>
+    </ul>
+    <a th:href="@{/movies/{id}/edit(id=${movie.id})}">Sửa</a>
+    <a th:href="@{/movies}">← Quay lại</a>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

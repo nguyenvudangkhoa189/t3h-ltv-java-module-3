@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Không tìm thấy')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+<main>
+    <h1>Restaurant không tồn tại</h1>
+    <p>restaurant_id bạn truy cập không có trong hệ thống.</p>
+    <a th:href="@{/restaurants}">← Về danh sách</a>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

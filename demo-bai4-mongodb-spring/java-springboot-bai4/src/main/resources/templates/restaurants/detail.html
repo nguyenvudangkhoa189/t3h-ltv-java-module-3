@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Chi tiết Restaurant')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main>
+    <h1>Chi tiết Restaurant</h1>
+    <p class="success" th:if="${message}" th:text="${message}"></p>
+
+    <form th:action="@{/restaurants/detail/{id}(id=${restaurant.restaurantId})}"
+          th:object="${restaurant}" method="post">
+        <table border="1" cellpadding="10">
+            <tr>
+                <td>Restaurant ID:</td>
+                <td th:text="${restaurant.restaurantId}">RID</td>
+            </tr>
+            <tr>
+                <td>Name:</td>
+                <td><input type="text" th:field="*{name}" style="width: 400px;"/></td>
+            </tr>
+            <tr>
+                <td>Borough:</td>
+                <td><input type="text" th:field="*{borough}"/></td>
+            </tr>
+            <tr>
+                <td>Cuisine:</td>
+                <td><input type="text" th:field="*{cuisine}"/></td>
+            </tr>
+        </table>
+        <br/>
+        <button type="submit">Update</button>
+        <a th:href="@{/restaurants}">← Quay lại danh sách</a>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${isEdit} ? 'Sửa Movie' : 'Thêm Movie')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main>
+    <h1 th:text="${isEdit} ? 'Sửa Movie' : 'Thêm Movie mới'">Form</h1>
+
+    <form th:action="${isEdit} ? @{/movies/{id}(id=${movieForm.id})} : @{/movies}"
+          th:object="${movieForm}"
+          method="post">
+
+        <div>
+            <label>Title:</label>
+            <input type="text" th:field="*{title}"/>
+            <p class="error" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></p>
+        </div>
+        <div>
+            <label>Năm:</label>
+            <input type="number" th:field="*{year}"/>
+            <p class="error" th:if="${#fields.hasErrors('year')}" th:errors="*{year}"></p>
+        </div>
+        <div>
+            <label>Thể loại:</label>
+            <input type="text" th:field="*{genreText}" placeholder="Action, Sci-Fi"/>
+        </div>
+        <div>
+            <label>Đạo diễn:</label>
+            <input type="text" th:field="*{director}"/>
+        </div>
+        <div>
+            <label>Rating:</label>
+            <input type="number" step="0.1" th:field="*{rating}"/>
+            <p class="error" th:if="${#fields.hasErrors('rating')}" th:errors="*{rating}"></p>
+        </div>
+
+        <button type="submit" th:text="${isEdit} ? 'Cập nhật' : 'Tạo mới'">Submit</button>
+        <a th:href="@{/movies}">Hủy</a>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

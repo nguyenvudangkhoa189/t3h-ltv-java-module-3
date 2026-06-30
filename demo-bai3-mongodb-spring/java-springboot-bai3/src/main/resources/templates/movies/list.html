@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Danh sách Movie')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main>
+    <h1>Quản lý Movie</h1>
+    <p class="success" th:if="${message}" th:text="${message}"></p>
+    <p class="error" th:if="${error}" th:text="${error}"></p>
+
+    <div class="toolbar">
+        <a class="btn" th:href="@{/movies/new}">+ Thêm Movie mới</a>
+
+        <form class="search-form" method="get" th:action="@{/movies}">
+            <input type="search" name="keyword" placeholder="Tìm theo tên phim..."
+                   th:value="${keyword}"/>
+            <button type="submit">Tìm kiếm</button>
+            <a th:if="${!#strings.isEmpty(keyword)}" th:href="@{/movies}">Xóa bộ lọc</a>
+        </form>
+    </div>
+
+    <p class="meta" th:if="${moviePage.totalElements > 0}">
+        Hiển thị <strong th:text="${movies.size()}">5</strong> /
+        <strong th:text="${moviePage.totalElements}">8</strong> phim
+    </p>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Title</th>
+            <th>Năm</th>
+            <th>Thể loại</th>
+            <th>Đạo diễn</th>
+            <th>Rating</th>
+            <th>Thao tác</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="m : ${movies}">
+            <td>
+                <a th:href="@{/movies/{id}(id=${m.id})}" th:text="${m.title}">Title</a>
+            </td>
+            <td th:text="${m.year}">2010</td>
+            <td th:text="${m.genre != null ? #strings.listJoin(m.genre, ', ') : ''}">Action</td>
+            <td th:text="${m.director}">Director</td>
+            <td th:text="${m.rating}">8.8</td>
+            <td class="actions">
+                <a th:href="@{/movies/{id}/edit(id=${m.id})}">Sửa</a>
+                <form th:action="@{/movies/{id}/delete(id=${m.id})}" method="post">
+                    <button type="submit" onclick="return confirm('Xóa phim này?')">Xóa</button>
+                </form>
+            </td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(movies)}">
+            <td colspan="6">
+                <span th:if="${!#strings.isEmpty(keyword)}">Không tìm thấy phim phù hợp.</span>
+                <span th:if="${#strings.isEmpty(keyword)}">Chưa có phim nào.</span>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+
+    <nav class="pagination" th:if="${moviePage.totalPages > 1}">
+        <a th:if="${!moviePage.first}"
+           th:href="@{/movies(page=${moviePage.number - 1}, keyword=${keyword})}">« Trước</a>
+
+        <a th:each="p : ${#numbers.sequence(0, moviePage.totalPages - 1)}"
+           th:href="@{/movies(page=${p}, keyword=${keyword})}"
+           th:text="${p + 1}"
+           th:classappend="${p == moviePage.number} ? ' active' : ''">1</a>
+
+        <a th:if="${!moviePage.last}"
+           th:href="@{/movies(page=${moviePage.number + 1}, keyword=${keyword})}">Sau »</a>
+    </nav>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
