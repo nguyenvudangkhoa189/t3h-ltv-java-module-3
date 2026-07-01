@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${isEdit} ? 'Sửa món' : 'Thêm món')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main>
+    <p><a th:href="@{/restaurants/{id}(id=${restaurantId})}">&larr; Quay lại nhà hàng</a></p>
+
+    <h1 th:text="${isEdit} ? 'Sửa món' : 'Thêm món mới'">Form món</h1>
+
+    <form th:action="${actionUrl}" th:object="${itemForm}" method="post">
+        <label for="name">Tên món</label>
+        <input id="name" type="text" th:field="*{name}"/>
+        <span class="error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+
+        <label for="description">Mô tả</label>
+        <input id="description" type="text" th:field="*{description}"/>
+
+        <label for="price">Giá</label>
+        <input id="price" type="number" step="0.01" th:field="*{price}"/>
+        <span class="error" th:if="${#fields.hasErrors('price')}" th:errors="*{price}"></span>
+
+        <label for="category">Loại</label>
+        <input id="category" type="text" th:field="*{category}" placeholder="Main, Side, Dessert..."/>
+
+        <p><button type="submit">Lưu</button></p>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

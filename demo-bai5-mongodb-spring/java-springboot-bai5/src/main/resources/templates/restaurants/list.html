@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Danh sách Nhà hàng')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main>
+    <h1>Danh sách Nhà hàng</h1>
+    <p class="success" th:if="${message}" th:text="${message}"></p>
+
+    <div class="toolbar">
+        <span>Sắp xếp theo tên:</span>
+        <a th:href="@{/restaurants(page=0, sortBy='name', dir='asc')}">A → Z</a>
+        <a th:href="@{/restaurants(page=0, sortBy='name', dir='desc')}">Z → A</a>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Restaurant ID</th>
+            <th>Name</th>
+            <th>Borough</th>
+            <th>Cuisine</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="r : ${list}">
+            <td>
+                <a th:href="@{/restaurants/{id}(id=${r.restaurantId})}" th:text="${r.restaurantId}">ID</a>
+            </td>
+            <td th:text="${r.name}">Name</td>
+            <td th:text="${r.borough}">Borough</td>
+            <td th:text="${r.cuisine}">Cuisine</td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(list)}">
+            <td colspan="4">Chưa có dữ liệu. Khởi động lại app với collection rỗng để DataSeeder nạp mẫu.</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <div class="pagination" th:if="${totalPages > 1}">
+        <a th:if="${currentPage > 0}"
+           th:href="@{/restaurants(page=${currentPage - 1}, sortBy=${sortBy}, dir=${dir})}">Prev</a>
+        <span th:each="pageNum : ${#numbers.sequence(startPage, endPage)}">
+            <a th:if="${pageNum != currentPage}"
+               th:href="@{/restaurants(page=${pageNum}, sortBy=${sortBy}, dir=${dir})}"
+               th:text="${pageNum + 1}">Page</a>
+            <span th:if="${pageNum == currentPage}" class="current" th:text="${pageNum + 1}"></span>
+        </span>
+        <a th:if="${currentPage < totalPages - 1}"
+           th:href="@{/restaurants(page=${currentPage + 1}, sortBy=${sortBy}, dir=${dir})}">Next</a>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

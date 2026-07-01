@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Chi tiết Nhà hàng')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main>
+    <p><a th:href="@{/restaurants}">&larr; Quay lại danh sách</a></p>
+
+    <p class="success" th:if="${message}" th:text="${message}"></p>
+    <p class="error" th:if="${error}" th:text="${error}"></p>
+
+    <h1 th:text="${restaurant.name}">Tên nhà hàng</h1>
+    <div class="card">
+        <p>Mã: <strong th:text="${restaurant.restaurantId}">ID</strong></p>
+        <p>Quận: <span th:text="${restaurant.borough}">Borough</span></p>
+        <p>Loại ẩm thực: <span th:text="${restaurant.cuisine}">Cuisine</span></p>
+    </div>
+
+    <h2>Danh sách món ăn ($lookup)</h2>
+    <p>
+        <a th:href="@{/restaurants/{id}/items/new(id=${restaurant.restaurantId})}">+ Thêm món</a>
+    </p>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Tên món</th>
+            <th>Mô tả</th>
+            <th>Giá</th>
+            <th>Loại</th>
+            <th>Thao tác</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="it : ${items}">
+            <td th:text="${it.name}">Cheeseburger</td>
+            <td th:text="${it.description}">Desc</td>
+            <td th:text="${it.price}">8.99</td>
+            <td th:text="${it.category}">Main</td>
+            <td>
+                <a th:href="@{/items/{iid}/edit(iid=${it.id})}">Sửa</a>
+                <form th:action="@{/items/{iid}/delete(iid=${it.id})}" method="post" class="inline-form">
+                    <button type="submit" onclick="return confirm('Xóa món này?')">Xóa</button>
+                </form>
+            </td>
+        </tr>
+        <tr th:if="${items == null or #lists.isEmpty(items)}">
+            <td colspan="5">Nhà hàng chưa có món ăn nào.</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <div class="card">
+        <h3>Đổi ID nhà hàng (Transaction — §8)</h3>
+        <p>Cập nhật <code>restaurant_id</code> trong cả collection <code>restaurants</code> và <code>items</code>.</p>
+        <form th:action="@{/restaurants/{id}/change-id(id=${restaurant.restaurantId})}" method="post">
+            <label>ID mới</label>
+            <input type="text" name="newId" placeholder="vd: 30075446" required/>
+            <button type="submit">Đổi ID (cập nhật cả items)</button>
+        </form>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

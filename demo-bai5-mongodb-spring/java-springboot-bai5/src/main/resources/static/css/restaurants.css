@@ -1,0 +1,16 @@
+body { font-family: Arial, sans-serif; margin: 0; padding: 0 1rem 2rem; }
+nav a { margin-right: 1rem; }
+main { max-width: 960px; margin: 0 auto; }
+table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+.success { color: #060; }
+.error { color: #c00; }
+.toolbar { display: flex; gap: 0.75rem; align-items: center; margin: 1rem 0; flex-wrap: wrap; }
+.pagination { margin-top: 1.25rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.pagination a { padding: 0.35rem 0.65rem; border: 1px solid #ccc; text-decoration: none; color: #286CB5; border-radius: 4px; }
+.pagination .current { padding: 0.35rem 0.65rem; background: #286CB5; color: #fff; border-radius: 4px; }
+form input[type="text"], form input[type="number"] { padding: 0.35rem; margin-bottom: 0.5rem; width: 100%; max-width: 400px; }
+form label { display: block; margin-top: 0.5rem; font-weight: bold; }
+button { padding: 0.45rem 0.9rem; cursor: pointer; }
+.card { border: 1px solid #ddd; padding: 1rem; margin: 1rem 0; border-radius: 6px; background: #fafafa; }
+.inline-form { display: inline; }
