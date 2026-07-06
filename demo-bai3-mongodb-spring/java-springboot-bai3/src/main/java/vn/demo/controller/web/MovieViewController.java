@@ -18,9 +18,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import vn.demo.dto.MovieDto;
 import vn.demo.dto.MovieFormDto;
+import vn.demo.dto.PagedListView;
 import vn.demo.exception.ResourceNotFoundException;
-import vn.demo.model.MovieModel;
 import vn.demo.service.MovieService;
 
 /**
@@ -46,7 +47,7 @@ public class MovieViewController {
 	private int pageSize;
 
 	/**
-	 * GET /movies — danh sách + tìm kiếm + phân trang.
+	 * GET /movies — danh sách + tìm kiếm + phân trang (§6.1.3 enterprise).
 	 *
 	 * @param keyword từ khóa tìm theo title (tùy chọn)
 	 * @param page    chỉ số trang, bắt đầu từ 0 (chuẩn Spring Data)
@@ -58,11 +59,30 @@ public class MovieViewController {
 			Model model) {
 		// PageRequest gói thông tin trang + sắp xếp; trang đánh số từ 0
 		PageRequest pageRequest = PageRequest.of(Math.max(page, 0), pageSize, Sort.by("title").ascending());
-		Page<MovieModel> moviePage = movieService.findPage(keyword, pageRequest);
+		PagedListView<MovieDto> listView = movieService.findPage(keyword, pageRequest);
 		// Đẩy dữ liệu sang view qua Model
+		model.addAttribute("moviePage", listView.getPagination());
+		model.addAttribute("movies", listView.getContent());
+		model.addAttribute("keyword", listView.getKeyword());
+		return "movies/list";
+	}
+
+	/**
+	 * GET /movies/demo/spring-page — demo §6.1.1: đẩy thẳng {@code Page&lt;MovieDto&gt;} sang view.
+	 *
+	 * <p>Cùng template {@code movies/list.html} vì {@code Page} và {@code PagedResponse} đều có
+	 * {@code totalPages}, {@code number}, {@code first}, {@code last}.</p>
+	 */
+	@GetMapping("/demo/spring-page")
+	public String listWithSpringPage(
+			@RequestParam(value = "keyword", required = false) String keyword,
+			@RequestParam(value = "page", defaultValue = "0") int page,
+			Model model) {
+		PageRequest pageRequest = PageRequest.of(Math.max(page, 0), pageSize, Sort.by("title").ascending());
+		Page<MovieDto> moviePage = movieService.findPageAsSpringPage(keyword, pageRequest);
 		model.addAttribute("moviePage", moviePage);
 		model.addAttribute("movies", moviePage.getContent());
-		model.addAttribute("keyword", keyword == null ? "" : keyword);
+		model.addAttribute("keyword", keyword == null ? "" : keyword.trim());
 		return "movies/list";
 	}
 
@@ -90,7 +110,7 @@ public class MovieViewController {
 			model.addAttribute("isEdit", false);
 			return "movies/form";
 		}
-		MovieModel created = movieService.create(movieForm.toEntity());
+		MovieDto created = movieService.create(movieForm);
 		redirectAttributes.addFlashAttribute("message", "Tạo phim thành công!");
 		return "redirect:/movies/" + created.getId();
 	}
@@ -110,7 +130,7 @@ public class MovieViewController {
 	@GetMapping("/{id}/edit")
 	public String editForm(@PathVariable String id, Model model) {
 		try {
-			model.addAttribute("movieForm", MovieFormDto.fromEntity(movieService.getById(id)));
+			model.addAttribute("movieForm", movieService.getFormById(id));
 			model.addAttribute("isEdit", true);
 			return "movies/form";
 		} catch (ResourceNotFoundException e) {
@@ -131,7 +151,7 @@ public class MovieViewController {
 			return "movies/form";
 		}
 		try {
-			movieService.update(id, movieForm.toEntity());
+			movieService.update(id, movieForm);
 			redirectAttributes.addFlashAttribute("message", "Cập nhật thành công!");
 			return "redirect:/movies/" + id;
 		} catch (ResourceNotFoundException e) {

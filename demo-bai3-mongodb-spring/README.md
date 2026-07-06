@@ -11,6 +11,17 @@ Mục tiêu: cùng một nghiệp vụ CRUD được thể hiện qua **API JSON
 phân biệt rõ `@RestController` vs `@Controller`, và thấy lợi ích của việc **tách tầng**
 (chỉ thay tầng trình bày, không viết lại Service/Repository).
 
+**Luồng dữ liệu:** Repository trả `MovieModel` → Service chuyển sang DTO. Phân trang có **3 mức demo**
+(syllabus §6.1): `Page<MovieDto>` → `PagedResponse<MovieDto>` → `PagedListView<MovieDto>`.
+
+## So sánh 3 cách phân trang (§6.1)
+
+| Cách | Service method | Endpoint demo |
+|------|----------------|---------------|
+| 1 — `Page` (Spring Data) | `findPageAsSpringPage` | `GET /api/movies/page` · `GET /movies/demo/spring-page` |
+| 3 — `PagedResponse` generic | `findPageAsPagedResponse` | `GET /api/movies/paged` |
+| 3 — `PagedListView` (web) | `findPage` | `GET /movies` (mặc định) |
+
 ## Yêu cầu
 
 - JDK 17+
@@ -37,6 +48,8 @@ cd demo-bai3-mongodb-spring/java-springboot-bai3
 | GET | `/api/movies/{id}` | Lấy 1 phim (404 nếu không có) |
 | GET | `/api/movies/search?keyword=incept` | Tìm theo từ khóa title |
 | GET | `/api/movies/good?rating=7&year=2015` | Lọc rating ≥ & năm ≥ |
+| GET | `/api/movies/page?keyword=&page=0&size=5` | Demo §6.1.1 — trả `Page` |
+| GET | `/api/movies/paged?keyword=&page=0&size=5` | Demo §6.1.3 — trả `PagedResponse` |
 | POST | `/api/movies` | Tạo mới (201 + object) |
 | PUT | `/api/movies/{id}` | Cập nhật partial |
 | DELETE | `/api/movies/{id}` | Xóa (204) |
@@ -54,7 +67,8 @@ curl -X POST http://localhost:8080/api/movies \
 
 | Màn hình | URL | Method |
 |----------|-----|--------|
-| Danh sách + tìm kiếm + phân trang | `/movies?keyword=&page=` | GET |
+| Danh sách + tìm kiếm + phân trang (enterprise) | `/movies?keyword=&page=` | GET |
+| Demo phân trang cách 1 (`Page`) | `/movies/demo/spring-page?keyword=&page=` | GET |
 | Form tạo | `/movies/new` | GET |
 | Tạo mới | `/movies` | POST |
 | Chi tiết | `/movies/{id}` | GET |
@@ -82,7 +96,12 @@ src/main/java/vn/demo/
 ├── repository/MovieRepository.java          ← MongoRepository + derived queries
 ├── service/MovieService.java                ← nghiệp vụ dùng chung 2 phần
 ├── exception/ResourceNotFoundException.java
-├── dto/MovieFormDto.java                    ← form Thymeleaf (genre dạng text)
+├── dto/
+│   ├── MovieDto.java                        ← REST API + chi tiết
+│   ├── MovieFormDto.java                    ← form Thymeleaf (genre dạng text)
+│   ├── PagedResponse.java                   ← phân trang offset generic
+│   ├── PageMapper.java                      ← Page&lt;Model&gt; → PagedResponse&lt;Dto&gt;
+│   └── PagedListView.java                   ← metadata UI Thymeleaf
 └── controller/
     ├── api/                                 ← PHẦN 1: REST API (trả JSON)
     │   ├── MovieRestController.java         ←   @RestController /api/movies

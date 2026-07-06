@@ -7,6 +7,7 @@ Sau bài này, học viên có thể:
 - Khởi tạo dự án **Spring Boot** có kết nối **MongoDB** bằng Spring Initializr
 - Khai báo kết nối MongoDB qua `application.properties` (`spring.data.mongodb.uri`)
 - Xây dựng kiến trúc phân tầng **Controller → Service → Repository → MongoDB**
+- Tách **Model** (entity) và **DTO**; Service chuyển đổi Model ↔ DTO trước khi trả Controller
 - Tạo **model** ánh xạ collection bằng `@Document`, `@Id`, `@Indexed`
 - Dùng `MongoRepository` và **derived query method** để truy vấn không cần viết code
 - **PHẦN 1:** Làm CRUD đầy đủ qua **REST API** (`@RestController`, trả JSON): Create / Read / Update / Delete + tìm kiếm
@@ -141,7 +142,11 @@ src/main/java/vn/demo/
 ├── service/
 │   └── MovieService.java                ← SERVICE: nghiệp vụ (dùng chung 2 phần)
 ├── dto/
-│   └── MovieFormDto.java                ← DTO: dữ liệu form cho Thymeleaf
+│   ├── MovieDto.java                    ← DTO: trả về REST API + chi tiết
+│   ├── MovieFormDto.java                ← DTO: form Thymeleaf (genre dạng text)
+│   ├── PagedResponse.java               ← DTO phân trang offset generic (enterprise)
+│   ├── PageMapper.java                  ← utility: Page&lt;Model&gt; → PagedResponse&lt;Dto&gt;
+│   └── PagedListView.java               ← bọc PagedResponse + metadata UI Thymeleaf
 ├── exception/
 │   └── ResourceNotFoundException.java   ← lỗi nghiệp vụ "không tìm thấy"
 └── controller/
@@ -166,8 +171,8 @@ src/main/resources/
 |------|---------------|-----------------|------------------------|
 | **Model (Entity)** | `MovieModel` | Mô tả cấu trúc 1 document trong collection; ánh xạ field ↔ thuộc tính | Không chứa logic nghiệp vụ |
 | **Repository** | `MovieRepository` | Truy cập MongoDB; khai báo derived query (Spring tự sinh code) | Không xử lý nghiệp vụ |
-| **Service** | `MovieService` | Chứa logic nghiệp vụ: kiểm tra tồn tại, partial update, ném lỗi 404... | Không phụ thuộc HTTP (request/response) |
-| **DTO** | `MovieFormDto` | Đối tượng trung gian nhận/gửi dữ liệu với form; chuyển đổi qua lại entity | Không lưu trực tiếp xuống DB |
+| **Service** | `MovieService` | Chứa logic nghiệp vụ; **chuyển Model ↔ DTO** trước khi trả về Controller | Không phụ thuộc HTTP (request/response) |
+| **DTO** | `MovieDto`, `MovieFormDto`, `PagedResponse`, `PagedListView` | Đối tượng trung gian giữa Controller và Service; validation đặt ở đây | Không lưu trực tiếp xuống DB |
 | **Controller (api)** | `MovieRestController` | Nhận HTTP request, gọi Service, trả **JSON** + status code | Không viết logic nghiệp vụ |
 | **Controller (web)** | `MovieViewController` | Nhận request, gọi Service, đẩy dữ liệu vào `Model`, trả **tên view** | Không viết logic nghiệp vụ |
 | **Exception handler** | `RestExceptionHandler` | Bắt lỗi tập trung cho REST → map sang status code | — |
@@ -175,7 +180,8 @@ src/main/resources/
 
 > **Quy tắc vàng:** request đi **một chiều** xuống: `Controller → Service → Repository → MongoDB`,
 > rồi dữ liệu đi ngược lên. Controller **không** gọi thẳng Repository, Service **không** biết gì
-> về HTTP.
+> về HTTP. **Controller không làm việc trực tiếp với entity** — Service chuyển `MovieModel` sang DTO
+> trước khi trả về.
 
 ### 3.2. Luồng một request
 
@@ -192,8 +198,9 @@ sequenceDiagram
     S->>R: gọi hàm truy vấn
     R->>DB: thực thi trên collection movies
     DB-->>R: documents
-    R-->>S: List<MovieModel> / MovieModel
-    S-->>C: dữ liệu
+    R-->>S: MovieModel (entity)
+    S-->>S: chuyển Model → DTO
+    S-->>C: MovieDto / PagedListView / MovieFormDto
     C-->>Client: JSON (REST) hoặc HTML (Thymeleaf)
 ```
 
@@ -214,17 +221,12 @@ public class MovieModel {
     @Id                            // khóa chính "_id" của MongoDB
     private String id;
 
-    @NotBlank
     @Indexed                       // tạo index để tối ưu tìm kiếm theo title
     private String title;
 
-    @Min(1888)
     private Integer year;
-
     private List<String> genre;
     private String director;
-
-    @Min(0)
     private Double rating;
 }
 ```
@@ -236,8 +238,8 @@ public class MovieModel {
 | `@Indexed` | Tạo **index** trên field → truy vấn theo field đó nhanh hơn |
 | `@Getter/@Setter/@ToString` | Lombok sinh getter/setter/toString |
 
-> **Lưu ý Lombok:** Dùng `@Getter/@Setter` thay cho `@Data` trên entity để tránh
-> `equals()/hashCode()` mặc định gây lỗi tinh vi khi document có cấu trúc lồng nhau.
+> **Lưu ý:** Entity chỉ dùng nội bộ Repository/Service. Validation (`@NotBlank`, `@Min`...) đặt trên
+> **DTO** (`MovieDto`, `MovieFormDto`), không đặt trên entity.
 >
 > **`_id` (String) vs `ObjectId`:** Spring Data ánh xạ `ObjectId` của MongoDB sang `String`
 > trong Java cho tiện hiển thị/truyền qua URL.
@@ -284,32 +286,161 @@ public interface MovieRepository extends MongoRepository<MovieModel, String> {
 
 ---
 
-## 6. Service — tầng nghiệp vụ dùng chung
+## 6. Service — tầng nghiệp vụ + chuyển đổi Model ↔ DTO
 
 `MovieService` là nơi tập trung nghiệp vụ; **cả REST API lẫn Thymeleaf đều gọi tới đây**.
+Repository trả về `MovieModel`; Service **chuyển sang DTO** trước khi trả cho Controller.
 
-| Hàm | Mục đích |
-|-----|----------|
-| `getAllMovies()` | Lấy tất cả phim |
-| `findPage(keyword, pageable)` | 1 trang phim có tìm kiếm (dùng cho Thymeleaf) |
-| `getById(id)` | Lấy 1 phim; ném `ResourceNotFoundException` nếu không có |
-| `getByTitle(title)` | Lấy 1 phim theo title; ném 404 nếu không có |
-| `searchByKeyword(keyword)` | Tìm theo từ khóa title |
-| `findGoodMovies(rating, year)` | Bài tập: rating ≥ & năm ≥ |
-| `create(movie)` | Tạo mới (đặt `id=null` để chắc chắn là insert) |
-| `update(id, params)` | Cập nhật **partial** — chỉ field có giá trị |
-| `delete(id)` | Xóa theo id |
+| Hàm | Trả về | Mục đích |
+|-----|--------|----------|
+| `getAllMovies()` | `List<MovieDto>` | Lấy tất cả phim (REST API) |
+| `findPage(keyword, pageable)` | `PagedListView<MovieDto>` | 1 trang phim (Thymeleaf — §6.1.3 enterprise) |
+| `findPageAsSpringPage(keyword, pageable)` | `Page<MovieDto>` | Demo §6.1.1 — trả `Page` của Spring Data |
+| `findPageAsPagedResponse(keyword, pageable)` | `PagedResponse<MovieDto>` | Demo §6.1.3 — contract generic cho REST |
+| `getById(id)` | `MovieDto` | Lấy 1 phim; ném 404 nếu không có |
+| `getFormById(id)` | `MovieFormDto` | Lấy form sửa (Thymeleaf) |
+| `searchByKeyword(keyword)` | `List<MovieDto>` | Tìm theo từ khóa title |
+| `findGoodMovies(rating, year)` | `List<MovieDto>` | Bài tập: rating ≥ & năm ≥ |
+| `create(MovieDto)` / `create(MovieFormDto)` | `MovieDto` | Tạo mới |
+| `update(id, MovieDto)` / `update(id, MovieFormDto)` | `MovieDto` | Cập nhật partial |
+| `delete(id)` | `void` | Xóa theo id |
 
 ```java
-public MovieModel getById(String id) {
-    return movieRepository.findById(id)
+// Đọc: Repository → Model → DTO
+public MovieDto getById(String id) {
+    MovieModel model = movieRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim với id: " + id));
+    return MovieDto.fromEntity(model);   // chuyển trước khi trả Controller
+}
+
+// Ghi: DTO → Model → Repository
+public MovieDto create(MovieDto dto) {
+    MovieModel model = dto.toEntity();
+    model.setId(null);
+    MovieModel saved = movieRepository.save(model);
+    return MovieDto.fromEntity(saved);
 }
 ```
 
 > Dùng `Optional` + `orElseThrow` thay cho việc trả `null` rồi kiểm tra `== null` — an toàn và rõ nghĩa hơn.
 >
-> **Xem code đầy đủ:** [`service/MovieService.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/service/MovieService.java)
+> **Xem code đầy đủ:** [`service/MovieService.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/service/MovieService.java) ·
+> [`dto/MovieDto.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/dto/MovieDto.java) ·
+> [`dto/PagedResponse.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/dto/PagedResponse.java) ·
+> [`dto/PageMapper.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/dto/PageMapper.java) ·
+> [`dto/PagedListView.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/dto/PagedListView.java)
+
+### 6.1. Phân trang: làm nhanh (trả `Page`) → vì sao enterprise tách `PagedResponse`?
+
+Mục tiêu phần này: cho học viên thấy **(1) cách làm đơn giản trước**, rồi **(2) hiểu vì sao khi đi làm**
+ta thường tách ra **contract phân trang riêng**, và **(3) chốt pattern generic** để tái dùng cho nhiều module.
+
+#### 6.1.1. Cách 1 — Controller (web/API) trả về `Page<MovieDto>` (nhanh, dễ hiểu)
+
+Ý tưởng: Repository trả `Page<MovieModel>`; Service map sang `Page<MovieDto>`; Controller trả/đẩy thẳng `Page`
+cho REST hoặc Thymeleaf.
+
+```java
+// Service — map trực tiếp sang Page<Dto>
+public Page<MovieDto> findPageAsSpringPage(String keyword, Pageable pageable) {
+    String safeKeyword = keyword == null ? "" : keyword.trim();
+    Page<MovieModel> page = movieRepository.findByTitleContainingIgnoreCase(safeKeyword, pageable);
+    return page.map(MovieDto::fromEntity); // Spring Data hỗ trợ map()
+}
+```
+
+```java
+// Controller (Thymeleaf) — đẩy thẳng Page<Dto> sang view
+Page<MovieDto> moviePage = movieService.findPageAsSpringPage(keyword, pageRequest);
+model.addAttribute("moviePage", moviePage);
+model.addAttribute("movies", moviePage.getContent());
+```
+
+> **Chạy demo trong project:**
+> - Web: [`GET /movies/demo/spring-page`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/controller/web/MovieViewController.java) — cùng template `movies/list.html`
+> - REST: [`GET /api/movies/page?keyword=&page=0&size=5`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/controller/api/MovieRestController.java)
+> - Service: [`findPageAsSpringPage`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/service/MovieService.java)
+
+**Điểm mạnh (khi học):**
+
+- Ít class, ít DTO, “thấy Page là hiểu phân trang”.
+- Thymeleaf dùng được ngay các field quen thuộc: `moviePage.totalPages`, `moviePage.number`, `moviePage.first`…
+
+#### 6.1.2. Nhưng vì sao enterprise thường KHÔNG dừng ở đây?
+
+Khi dự án lớn dần (nhiều entity, nhiều module, nhiều dịch vụ), việc “trả `Page` ra Controller” phát sinh 3 nhóm vấn đề:
+
+1) **Framework leak (lộ Spring Data ra tầng trình bày)**
+
+- `Page` là type của Spring Data. Khi Controller/REST “nhìn thấy” `Page`, bạn đã khóa code vào Spring Data.
+- Nếu sau này đổi sang cơ chế khác (microservice khác ngôn ngữ, hoặc không dùng Spring Data, hoặc dùng cursor),
+  API contract khó giữ ổn định.
+
+2) **Contract API khó kiểm soát / khó chuẩn hóa**
+
+- REST trả `Page` thường kéo theo format JSON phụ thuộc framework (tên field, cấu trúc, metadata…).
+- Mỗi team/module có thể serialize khác nhau (PageImpl, Slice, custom) → client khó dùng, khó document.
+
+3) **Dễ “lộ” entity hoặc kéo theo dữ liệu không mong muốn**
+
+- Nếu bất cẩn trả `Page<MovieModel>` (entity) thay vì DTO, bạn lộ cấu trúc DB ra ngoài và khó thay đổi schema.
+- Khi muốn thêm field UI (keyword, sortBy, cửa sổ trang 5 nút) thì `Page` **không** chứa sẵn → Controller lại tự tính,
+  dẫn tới logic UI bị rải rác (mỗi controller tính 1 kiểu).
+
+Tóm lại: cách 1 **tốt để học nhanh**, nhưng khi đi làm, enterprise thường muốn “tầng trình bày” chỉ phụ thuộc
+vào **contract của ứng dụng**, không phụ thuộc framework.
+
+#### 6.1.3. Cách 2/3 — Tách `PagedResponse` riêng, rồi generic hóa để tái dùng
+
+Trong dự án thực tế, **không** nên tạo `MoviePageDto`, `RestaurantPageDto`… cho từng entity —
+metadata phân trang (`totalPages`, `first`, `last`…) sẽ bị **lặp** ở mọi module.
+
+Giải pháp enterprise trong demo Bài 3–5 là tách 2 lớp:
+
+- **`PagedResponse<T>`**: contract phân trang offset **generic** (tái dùng cho REST hoặc web).
+- **`PagedListView<T>`**: bọc `PagedResponse<T>` + metadata **chỉ cho UI** (keyword, sortBy, cửa sổ trang).
+
+**Pattern demo Bài 3–5:**
+
+| Lớp | Vai trò | Ai được dùng |
+|-----|---------|--------------|
+| `Page<MovieModel>` | Kết quả thô từ Repository | **Chỉ Service** (nội bộ) |
+| `PageMapper` | `Page<E>` → `PagedResponse<D>` + map từng phần tử | Service |
+| `PagedResponse<T>` | Contract phân trang generic | Service → Controller / REST |
+| `PagedListView<T>` | Metadata UI (keyword/sort/cửa sổ trang) | Service → Controller Thymeleaf |
+
+```mermaid
+flowchart LR
+    R[Repository] -->|Page MovieModel| S[Service]
+    S -->|PageMapper.map| PR[PagedResponse MovieDto]
+    PR --> PLV[PagedListView MovieDto]
+    PLV --> C[MovieViewController]
+    PR -.->|có thể dùng trực tiếp| API[REST API tương lai]
+```
+
+```java
+// Service — Repository trả Page<Model>, Service trả DTO (không lộ Page ra Controller)
+public PagedListView<MovieDto> findPage(String keyword, Pageable pageable) {
+    String safeKeyword = keyword == null ? "" : keyword.trim();
+    Page<MovieModel> page = movieRepository.findByTitleContainingIgnoreCase(safeKeyword, pageable);
+    return PagedListView.from(page, MovieDto::fromEntity, safeKeyword);
+}
+```
+
+> **Chạy demo trong project:**
+> - Web (mặc định): [`GET /movies`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/controller/web/MovieViewController.java) — dùng `PagedListView`
+> - REST: [`GET /api/movies/paged?keyword=&page=0&size=5`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/controller/api/MovieRestController.java) — trả `PagedResponse`
+> - Service: [`findPage`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/service/MovieService.java) · [`findPageAsPagedResponse`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/service/MovieService.java)
+> - Test: [`MoviePaginationTest.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/test/java/vn/demo/MoviePaginationTest.java)
+
+**Vì sao tách `PagedListView` khỏi `PagedResponse`?**
+
+- `PagedResponse` thuần → tái dùng cho REST API (`GET /api/movies?page=0`).
+- `keyword`, `sortBy`, `startPage`/`endPage` chỉ phục vụ template HTML → đặt ở `PagedListView`,
+  không “bẩn” contract API.
+
+> **Gợi ý cho học viên khi làm bài tập:** cứ làm theo cách 1 trước để quen `Pageable`, sau đó refactor sang
+> cách 3 (generic `PagedResponse` + `PageMapper`) để hiểu “enterprise thinking”.
 
 ---
 
@@ -342,6 +473,8 @@ public class MovieRestController {
 | GET | `/api/movies/{id}` | Lấy 1 phim | 200 / 404 |
 | GET | `/api/movies/search?keyword=` | Tìm theo title | 200 |
 | GET | `/api/movies/good?rating=7&year=2015` | Lọc rating & năm | 200 |
+| GET | `/api/movies/page?keyword=&page=0&size=5` | **Demo §6.1.1** — trả `Page` | 200 |
+| GET | `/api/movies/paged?keyword=&page=0&size=5` | **Demo §6.1.3** — trả `PagedResponse` | 200 |
 | POST | `/api/movies` | Tạo mới | 201 |
 | PUT | `/api/movies/{id}` | Cập nhật | 200 / 404 |
 | DELETE | `/api/movies/{id}` | Xóa | 204 / 404 |
@@ -350,7 +483,7 @@ public class MovieRestController {
 
 ```java
 @GetMapping("/search")
-public ResponseEntity<List<MovieModel>> search(@RequestParam String keyword) {
+public ResponseEntity<List<MovieDto>> search(@RequestParam String keyword) {
     return ResponseEntity.ok(movieService.searchByKeyword(keyword));
 }
 ```
@@ -361,8 +494,8 @@ Test: `GET http://localhost:8080/api/movies/search?keyword=incept`
 
 ```java
 @PostMapping
-public ResponseEntity<MovieModel> create(@Valid @RequestBody MovieModel movie) {
-    MovieModel created = movieService.create(movie);
+public ResponseEntity<MovieDto> create(@Valid @RequestBody MovieDto movie) {
+    MovieDto created = movieService.create(movie);
     return new ResponseEntity<>(created, HttpStatus.CREATED);   // 201
 }
 ```
@@ -377,7 +510,7 @@ curl -X POST http://localhost:8080/api/movies \
 
 ```java
 @PutMapping("/{id}")
-public ResponseEntity<MovieModel> update(@PathVariable String id, @RequestBody MovieModel movie) {
+public ResponseEntity<MovieDto> update(@PathVariable String id, @RequestBody MovieDto movie) {
     return ResponseEntity.ok(movieService.update(id, movie));
 }
 
@@ -414,7 +547,7 @@ public class RestExceptionHandler {
 | Tình huống | Kết quả |
 |------------|---------|
 | `getById(id)` không thấy → `ResourceNotFoundException` | **404 Not Found** |
-| POST thiếu `title` (vi phạm `@NotBlank`) | **400 Bad Request** + danh sách field lỗi |
+| POST thiếu `title` (vi phạm `@NotBlank` trên `MovieDto`) | **400 Bad Request** + danh sách field lỗi |
 
 > **Xem code đầy đủ:** [`exception/ResourceNotFoundException.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/exception/ResourceNotFoundException.java) ·
 > [`controller/api/RestExceptionHandler.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/controller/api/RestExceptionHandler.java)
@@ -444,6 +577,7 @@ public class RestExceptionHandler {
 | Màn hình | URL | Method | View |
 |----------|-----|--------|------|
 | Danh sách + tìm kiếm + phân trang | `/movies?keyword=&page=` | GET | `movies/list` |
+| Demo phân trang cách 1 (`Page`) | `/movies/demo/spring-page?keyword=&page=` | GET | `movies/list` |
 | Form tạo | `/movies/new` | GET | `movies/form` |
 | Tạo mới | `/movies` | POST | redirect |
 | Chi tiết | `/movies/{id}` | GET | `movies/detail` |
@@ -460,10 +594,10 @@ public String list(
         @RequestParam(defaultValue = "0") int page,    // page bắt đầu từ 0 (chuẩn Spring Data)
         Model model) {
     PageRequest pageRequest = PageRequest.of(Math.max(page, 0), pageSize, Sort.by("title").ascending());
-    Page<MovieModel> moviePage = movieService.findPage(keyword, pageRequest);
-    model.addAttribute("moviePage", moviePage);
-    model.addAttribute("movies", moviePage.getContent());
-    model.addAttribute("keyword", keyword == null ? "" : keyword);
+    PagedListView<MovieDto> listView = movieService.findPage(keyword, pageRequest);
+    model.addAttribute("moviePage", listView.getPagination());  // PagedResponse — metadata phân trang
+    model.addAttribute("movies", listView.getContent());
+    model.addAttribute("keyword", listView.getKeyword());
     return "movies/list";
 }
 ```
@@ -474,8 +608,9 @@ public String list(
 
 ### 9.4. Form + validation (PRG)
 
-Phần 2 dùng DTO **`MovieFormDto`** (nhập `genre` dạng chuỗi `"Action, Sci-Fi"`) rồi chuyển qua
-`MovieModel`. Sau khi tạo/sửa/xóa thành công → `redirect` theo mẫu **Post-Redirect-Get**.
+Phần 2 dùng DTO **`MovieFormDto`** (nhập `genre` dạng chuỗi `"Action, Sci-Fi"`). Service nhận
+`MovieFormDto`, chuyển sang `MovieModel` rồi lưu. Sau khi tạo/sửa/xóa thành công → `redirect`
+theo mẫu **Post-Redirect-Get**.
 
 ```java
 @PostMapping
@@ -486,7 +621,7 @@ public String create(@Valid @ModelAttribute("movieForm") MovieFormDto form,
         model.addAttribute("isEdit", false);
         return "movies/form";          // có lỗi → render lại form + th:errors
     }
-    MovieModel created = movieService.create(form.toEntity());
+    MovieDto created = movieService.create(form);   // Service tự chuyển DTO → Model
     ra.addFlashAttribute("message", "Tạo phim thành công!");
     return "redirect:/movies/" + created.getId();
 }
@@ -495,6 +630,7 @@ public String create(@Valid @ModelAttribute("movieForm") MovieFormDto form,
 > **Xem code đầy đủ:**
 > [`controller/web/MovieViewController.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/controller/web/MovieViewController.java) ·
 > [`controller/web/HomeController.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/controller/web/HomeController.java) ·
+> [`dto/MovieDto.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/dto/MovieDto.java) ·
 > [`dto/MovieFormDto.java`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/java/vn/demo/dto/MovieFormDto.java) ·
 > [templates `movies/`](../../demo-bai3-mongodb-spring/java-springboot-bai3/src/main/resources/templates/movies)
 
@@ -577,4 +713,5 @@ public String create(@Valid @ModelAttribute("movieForm") MovieFormDto form,
 - [Spring Data MongoDB Reference](https://docs.spring.io/spring-data/mongodb/reference/)
 - [Query Methods](https://docs.spring.io/spring-data/mongodb/reference/repositories/query-methods-details.html)
 - [Bài 2 — NoSQL & MongoDB](./java_m3_bai2_NoSQL_MongoDB.md)
+- [Bài 6 — Tối ưu truy vấn MongoDB](./java_m3_bai6_Query_Optimization.md)
 - Demo: [`demo-bai3-mongodb-spring`](../../demo-bai3-mongodb-spring)

@@ -8,6 +8,11 @@ import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import vn.demo.dto.MovieDto;
+import vn.demo.dto.MovieFormDto;
+import vn.demo.dto.PageMapper;
+import vn.demo.dto.PagedListView;
+import vn.demo.dto.PagedResponse;
 import vn.demo.exception.ResourceNotFoundException;
 import vn.demo.model.MovieModel;
 import vn.demo.repository.MovieRepository;
@@ -31,14 +36,41 @@ public class MovieService {
 	private final MovieRepository movieRepository;
 
 	/** Lấy tất cả phim (dùng cho API đơn giản). */
-	public List<MovieModel> getAllMovies() {
-		return movieRepository.findAll();
+	public List<MovieDto> getAllMovies() {
+		return movieRepository.findAll().stream()
+				.map(MovieDto::fromEntity)
+				.toList();
 	}
 
 	/** Lấy 1 trang phim có tìm kiếm theo từ khóa (dùng cho màn hình Thymeleaf). */
-	public Page<MovieModel> findPage(String keyword, Pageable pageable) {
+	public PagedListView<MovieDto> findPage(String keyword, Pageable pageable) {
 		String safeKeyword = keyword == null ? "" : keyword.trim();
-		return movieRepository.findByTitleContainingIgnoreCase(safeKeyword, pageable);
+		Page<MovieModel> page = movieRepository.findByTitleContainingIgnoreCase(safeKeyword, pageable);
+		return PagedListView.from(page, MovieDto::fromEntity, safeKeyword);
+	}
+
+	/**
+	 * §6.1.1 — Cách 1: map trực tiếp sang {@code Page&lt;MovieDto&gt;} (Spring Data).
+	 *
+	 * <p>Dùng để học viên so sánh với {@link #findPage(String, Pageable)} (enterprise).
+	 * Trong app thật, endpoint demo: {@code GET /movies/demo/spring-page} và
+	 * {@code GET /api/movies/page}.</p>
+	 */
+	public Page<MovieDto> findPageAsSpringPage(String keyword, Pageable pageable) {
+		String safeKeyword = keyword == null ? "" : keyword.trim();
+		Page<MovieModel> page = movieRepository.findByTitleContainingIgnoreCase(safeKeyword, pageable);
+		return page.map(MovieDto::fromEntity);
+	}
+
+	/**
+	 * §6.1.3 — Cách 3 (REST): trả {@link vn.demo.dto.PagedResponse} generic, không lộ {@code Page}.
+	 *
+	 * <p>Endpoint demo: {@code GET /api/movies/paged}.</p>
+	 */
+	public vn.demo.dto.PagedResponse<MovieDto> findPageAsPagedResponse(String keyword, Pageable pageable) {
+		String safeKeyword = keyword == null ? "" : keyword.trim();
+		Page<MovieModel> page = movieRepository.findByTitleContainingIgnoreCase(safeKeyword, pageable);
+		return PageMapper.map(page, MovieDto::fromEntity);
 	}
 
 	/**
@@ -46,33 +78,45 @@ public class MovieService {
 	 *
 	 * <p>Dùng {@code Optional.orElseThrow} thay cho việc trả null rồi kiểm tra — rõ và an toàn hơn.</p>
 	 */
-	public MovieModel getById(String id) {
-		return movieRepository.findById(id)
-				.orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim với id: " + id));
+	public MovieDto getById(String id) {
+		return MovieDto.fromEntity(findEntityById(id));
+	}
+
+	/** Lấy dữ liệu form sửa theo id (dùng cho màn hình Thymeleaf). */
+	public MovieFormDto getFormById(String id) {
+		return MovieFormDto.fromEntity(findEntityById(id));
 	}
 
 	/** Tìm 1 phim theo title; ném 404 nếu không có. */
-	public MovieModel getByTitle(String title) {
-		return movieRepository.findByTitle(title)
+	public MovieDto getByTitle(String title) {
+		MovieModel movie = movieRepository.findByTitle(title)
 				.orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim với title: " + title));
+		return MovieDto.fromEntity(movie);
 	}
 
 	/** Tìm kiếm theo từ khóa của title (không phân biệt hoa thường). */
-	public List<MovieModel> searchByKeyword(String keyword) {
-		return movieRepository.findByTitleContainingIgnoreCase(keyword == null ? "" : keyword.trim());
+	public List<MovieDto> searchByKeyword(String keyword) {
+		String safeKeyword = keyword == null ? "" : keyword.trim();
+		return movieRepository.findByTitleContainingIgnoreCase(safeKeyword).stream()
+				.map(MovieDto::fromEntity)
+				.toList();
 	}
 
 	/** Bài tập: rating >= ratingMin VÀ year >= yearFrom. */
-	public List<MovieModel> findGoodMovies(Double ratingMin, Integer yearFrom) {
-		return movieRepository.findByRatingGreaterThanEqualAndYearGreaterThanEqual(ratingMin, yearFrom);
+	public List<MovieDto> findGoodMovies(Double ratingMin, Integer yearFrom) {
+		return movieRepository.findByRatingGreaterThanEqualAndYearGreaterThanEqual(ratingMin, yearFrom).stream()
+				.map(MovieDto::fromEntity)
+				.toList();
 	}
 
-	/** Tạo mới 1 phim. */
-	public MovieModel create(MovieModel movie) {
-		movie.setId(null); // đảm bảo là tạo mới, không vô tình ghi đè document theo id gửi lên
-		MovieModel saved = movieRepository.save(movie);
-		log.info("Đã tạo movie id={}", saved.getId());
-		return saved;
+	/** Tạo mới 1 phim (REST API). */
+	public MovieDto create(MovieDto movie) {
+		return MovieDto.fromEntity(saveNew(movie.toEntity()));
+	}
+
+	/** Tạo mới 1 phim (form Thymeleaf). */
+	public MovieDto create(MovieFormDto form) {
+		return MovieDto.fromEntity(saveNew(form.toEntity()));
 	}
 
 	/**
@@ -82,8 +126,36 @@ public class MovieService {
 	 * @param params dữ liệu mới
 	 * @return phim sau khi cập nhật
 	 */
-	public MovieModel update(String id, MovieModel params) {
-		MovieModel existing = getById(id); // tận dụng lại getById (đã tự ném 404 nếu không có)
+	public MovieDto update(String id, MovieDto params) {
+		return MovieDto.fromEntity(applyUpdate(id, params.toEntity()));
+	}
+
+	/** Cập nhật phim từ form Thymeleaf. */
+	public MovieDto update(String id, MovieFormDto form) {
+		return MovieDto.fromEntity(applyUpdate(id, form.toEntity()));
+	}
+
+	/** Xóa phim theo id; ném 404 nếu không có. */
+	public void delete(String id) {
+		MovieModel existing = findEntityById(id);
+		movieRepository.delete(existing);
+		log.info("Đã xóa movie id={}", id);
+	}
+
+	private MovieModel findEntityById(String id) {
+		return movieRepository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim với id: " + id));
+	}
+
+	private MovieModel saveNew(MovieModel movie) {
+		movie.setId(null); // đảm bảo là tạo mới, không vô tình ghi đè document theo id gửi lên
+		MovieModel saved = movieRepository.save(movie);
+		log.info("Đã tạo movie id={}", saved.getId());
+		return saved;
+	}
+
+	private MovieModel applyUpdate(String id, MovieModel params) {
+		MovieModel existing = findEntityById(id); // tận dụng lại findEntityById (đã tự ném 404 nếu không có)
 		if (params.getTitle() != null) {
 			existing.setTitle(params.getTitle());
 		}
@@ -100,13 +172,6 @@ public class MovieService {
 			existing.setRating(params.getRating());
 		}
 		return movieRepository.save(existing);
-	}
-
-	/** Xóa phim theo id; ném 404 nếu không có. */
-	public void delete(String id) {
-		MovieModel existing = getById(id);
-		movieRepository.delete(existing);
-		log.info("Đã xóa movie id={}", id);
 	}
 
 }
