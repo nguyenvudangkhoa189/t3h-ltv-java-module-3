@@ -8,10 +8,10 @@ Sau bài này, học viên có thể:
 - Phân biệt 3 loại quan hệ: **1-1**, **1-n**, **n-n**
 - Chọn đúng cách thiết kế dữ liệu: **Embedded** (nhúng) vs **Reference** (tham chiếu) theo tiêu chí thực tế
 - Đánh **index** trên khóa liên kết để truy vấn nhiều collection hiệu quả
-- Truy vấn liên kết nhiều collection bằng **`$lookup`** (+ `$match`, `$unwind`) trong `mongosh` và trong Spring (`MongoTemplate`, `Aggregation`)
+- Truy vấn liên kết nhiều collection bằng **`$lookup`** (+ `$match`, `$unwind`) trong `mongosh` và trong Spring (`MongoTemplate`, `Aggregation` — §7.4)
 - Trả dữ liệu liên kết về client bằng **DTO** thay vì `HashMap` (type-safe)
 - Cập nhật dữ liệu trên **nhiều collection an toàn** bằng **MongoDB Transaction** (`@Transactional` + `MongoTransactionManager`), hiểu **điều kiện bắt buộc** (Replica Set)
-- Tối ưu cập nhật hàng loạt bằng `updateMulti` (tránh N+1 write)
+- Hiểu **`MongoTemplate` + `updateMulti`** chi tiết: `Query`, `Criteria`, `Update` (§9.0); tránh N+1 write
 - **PHẦN BÀI TẬP:** dựng **giao diện Thymeleaf** quản lý quan hệ Restaurant ↔ Item
 
 ## Điều kiện tiên quyết
@@ -69,13 +69,107 @@ Sau bài này, học viên có thể:
 | 6 | Truy vấn `$lookup` trong `mongosh` (6.1 chuẩn bị dữ liệu → 6.2 khái niệm → 6.3–6.5 ví dụ) |
 | 7 | API truy vấn nhiều collection (Spring + DTO) |
 | **8** | **Cập nhật nhiều collection + Transaction** (8.1 bài toán → 8.2 điều kiện → 8.3–8.5 code) |
-| 9 | Tối ưu cập nhật hàng loạt `updateMulti` (9.1–9.4) |
+| 9 | Tối ưu cập nhật hàng loạt — `MongoTemplate` + `updateMulti` (9.0–9.4) |
 | **10** | **PHẦN BÀI TẬP — Giao diện Thymeleaf** (10.1–10.6) |
 | 11 | Lỗi thường gặp |
 | Phụ lục | Bài tập mở rộng · Checklist · Liên kết |
+| — | **Kiến trúc project demo** (cấu trúc package, bảng nhiệm vụ tầng) |
+
 ---
 
-## 1. Mục đích — vì sao tách nhiều collection
+## Kiến trúc project demo
+
+> Demo đầy đủ: [`demo-bai5-mongodb-spring`](../../demo-bai5-mongodb-spring)
+
+### Cấu trúc package (gợi ý)
+
+Bài 5 vừa có **REST API** (truy vấn `$lookup`, transaction) vừa có **Thymeleaf** (quản lý quan hệ
+restaurant ↔ items) — tách `controller/api` và `controller/web` giống Bài 3. Service dùng
+`MongoTemplate` cho aggregation; `ItemRepositoryCustom` + `ItemRepositoryImpl` cho `updateMulti`.
+
+```
+src/main/java/vn/demo/
+├── DemoBai5MongoApplication.java
+├── config/
+│   ├── DataSeeder.java                  ← nạp restaurants + items mẫu khi rỗng
+│   └── MongoConfig.java                 ← MongoTransactionManager (§8 Transaction)
+├── model/
+│   ├── RestaurantModel.java             ← collection cha (restaurants)
+│   └── ItemModel.java                   ← collection con (items), khóa restaurant_id
+├── repository/
+│   ├── RestaurantRepository.java        ← derived query + phân trang
+│   ├── ItemRepository.java              ← derived query
+│   ├── ItemRepositoryCustom.java        ← interface custom (updateMulti)
+│   └── ItemRepositoryImpl.java          ← triển khai updateMulti bằng MongoTemplate
+├── service/
+│   ├── RestaurantService.java           ← $lookup, transaction, phân trang
+│   └── ItemService.java                 ← CRUD món ăn
+├── dto/
+│   ├── RestaurantDto.java               ← danh sách nhà hàng (list)
+│   ├── RestaurantWithItemsDto.java      ← kết quả $lookup (nhà hàng + menuItems)
+│   ├── ItemWithRestaurantDto.java       ← $lookup ngược (món + restaurantInfo)
+│   ├── ItemFormDto.java                 ← form Thymeleaf thêm/sửa món
+│   ├── PagedResponse.java               ← phân trang offset generic (tái dùng Bài 4)
+│   ├── PageMapper.java
+│   └── PagedListView.java               ← metadata UI (sort, cửa sổ trang)
+├── exception/
+│   └── ResourceNotFoundException.java
+└── controller/
+    ├── api/                             ← REST API (trả JSON)
+    │   ├── RestaurantRestController.java  ← $lookup, đổi ID (transaction)
+    │   ├── ItemRestController.java
+    │   └── RestExceptionHandler.java
+    └── web/                             ← Thymeleaf (trả view HTML)
+        ├── HomeController.java            ← / → /restaurants
+        ├── RestaurantViewController.java← list/detail/đổi ID
+        └── ItemViewController.java        ← form thêm/sửa/xóa món
+
+src/main/resources/
+├── application.properties               ← page-size, replicaSet (transaction)
+├── static/css/restaurants.css
+└── templates/
+    ├── fragments/layout.html
+    ├── restaurants/{list,detail,not-found}.html
+    └── items/form.html
+
+01-create-sample-data.mongodb            ← script mongosh (ngoài src/)
+```
+
+### Nhiệm vụ cụ thể của từng tầng
+
+| Tầng | Lớp trong bài | Nhiệm vụ cụ thể |
+|------|---------------|-----------------|
+| **Model** | `RestaurantModel`, `ItemModel` | Mô tả 2 collection; liên kết qua field `restaurant_id` (reference, không FK) |
+| **Repository** | `RestaurantRepository`, `ItemRepository` | CRUD + derived query; `ItemRepositoryCustom` cho `updateMulti` |
+| **Service** | `RestaurantService`, `ItemService` | `$lookup` (Aggregation), transaction, phân trang; **chuyển Model ↔ DTO** |
+| **DTO** | `RestaurantWithItemsDto`, `ItemFormDto`, `PagedResponse`… | Kết quả join type-safe; entity không lộ ra Controller |
+| **Controller (api)** | `RestaurantRestController` | REST: join, đổi ID, so sánh save vs updateMulti |
+| **Controller (web)** | `RestaurantViewController`, `ItemViewController` | Thymeleaf: list/detail/CRUD món, đổi ID |
+| **Config** | `MongoConfig`, `DataSeeder` | Bật transaction manager; nạp dữ liệu mẫu |
+
+> **Quy tắc vàng:** `Controller → Service → Repository/MongoTemplate → MongoDB`.
+> Controller **không** gọi thẳng Repository; Service **không** biết HTTP.
+> Kết quả `$lookup` map sang **DTO** — không trả `HashMap`, không trả entity ra ngoài Service.
+
+```mermaid
+sequenceDiagram
+    participant Client as Browser / Postman
+    participant C as Controller
+    participant S as RestaurantService
+    participant MT as MongoTemplate
+    participant DB as MongoDB
+
+    Client->>C: GET /restaurants/{id} hoặc /api/.../with-items
+    C->>S: getRestaurantWithItems(restaurantId)
+    S->>MT: aggregate($match + $lookup)
+    MT->>DB: restaurants + items
+    DB-->>MT: documents joined
+    MT-->>S: RestaurantWithItemsDto
+    S-->>C: List DTO
+    C-->>Client: HTML (Thymeleaf) hoặc JSON
+```
+
+---
 
 Trong thực tế, dữ liệu thường được lưu ở **nhiều collection** để:
 
@@ -516,12 +610,32 @@ public class RestaurantRestController {
 
 > **Xem code đầy đủ:** [`controller/api/RestaurantRestController.java`](../../demo-bai5-mongodb-spring/java-springboot-bai5/src/main/java/vn/demo/controller/api/RestaurantRestController.java)
 
-### 7.4. Service — `MongoTemplate` + `Aggregation` + `$lookup`
+### 7.4. `MongoTemplate` là gì? Khi nào dùng?
+
+**`MongoTemplate`** là lớp Spring cung cấp để thao tác MongoDB **linh hoạt** hơn `MongoRepository`:
+
+| `MongoRepository` | `MongoTemplate` |
+|-------------------|-----------------|
+| Derived query (`findBy…`) | `Query` + `Criteria` tùy chỉnh |
+| `save(entity)` — load + ghi cả document | `Update.set` — chỉ đổi vài field |
+| Không hỗ trợ aggregation pipeline | `aggregate(...)` — `$lookup`, `$match`… |
+| Phù hợp CRUD đơn giản | Phù hợp join nhiều collection, `updateMulti` |
+
+> **Quy tắc:** CRUD thuần → Repository; join (`$lookup`) hoặc cập nhật hàng loạt không load entity →
+> `MongoTemplate` trong Service hoặc `*RepositoryImpl` (xem §9).
+
+Spring **tự inject** `MongoTemplate` khi có `spring-boot-starter-data-mongodb`:
 
 ```java
-@Autowired
-private MongoTemplate mongoTemplate;   // dùng để chạy aggregation liên kết
+@RequiredArgsConstructor
+public class RestaurantService {
+    private final MongoTemplate mongoTemplate;   // constructor injection
+}
+```
 
+#### Service — `Aggregation` + `$lookup`
+
+```java
 public List<RestaurantWithItemsDto> getRestaurantWithItems(String restaurantId) {
     MatchOperation matchStage = Aggregation.match(
             Criteria.where("restaurant_id").is(restaurantId));
@@ -540,6 +654,13 @@ public List<RestaurantWithItemsDto> getRestaurantWithItems(String restaurantId) 
             .getMappedResults();
 }
 ```
+
+| Thành phần | Vai trò | Tương đương `mongosh` |
+|------------|---------|----------------------|
+| `Aggregation.match(...)` | Lọc document trước khi join | `{ $match: { restaurant_id: "..." } }` |
+| `LookupOperation.newLookup()` | Nối collection phụ | `{ $lookup: { from, localField, foreignField, as } }` |
+| `mongoTemplate.aggregate(...)` | Chạy pipeline, map sang class Java | `db.restaurants.aggregate([...])` |
+| Tham số `"restaurants"` | Collection **bắt đầu** pipeline | Collection trong `db.<name>.aggregate` |
 
 > **Xem code đầy đủ:** [`service/RestaurantService.java`](../../demo-bai5-mongodb-spring/java-springboot-bai5/src/main/java/vn/demo/service/RestaurantService.java) (hàm `getRestaurantWithItems`, `getItemsWithRestaurantInfo`)
 
@@ -699,12 +820,115 @@ public void updateRestaurantIdWithSave(String oldId, String newId) {
 
 ---
 
-## 9. Tối ưu cập nhật hàng loạt (`updateMulti`)
+## 9. Tối ưu cập nhật hàng loạt — `MongoTemplate` + `updateMulti`
 
 > **Nhược điểm của §8.5:** cập nhật **từng item trong vòng lặp** → mỗi item là 1 lần đọc + 1 lần
 > ghi xuống DB. Dữ liệu nhiều sẽ rất chậm (N+1 write).
 >
-> **Cách cải tiến:** dùng **1 câu lệnh** `updateMulti` để cập nhật tất cả item cùng lúc.
+> **Cách cải tiến:** dùng **`MongoTemplate.updateMulti`** — **1 câu lệnh** cập nhật tất cả item khớp
+> điều kiện, không load hết entity lên RAM.
+
+### 9.0. `MongoTemplate` + `Query` / `Update` / `updateMulti` (chi tiết)
+
+#### Khi nào dùng `updateMulti` thay vì `repository.save()`?
+
+| Cách | Hành vi | Vấn đề khi dữ liệu lớn |
+|------|---------|-------------------------|
+| `find` → sửa object Java → `save()` | Load **cả document** lên RAM, ghi lại toàn bộ | N document = N lần đọc + N lần ghi |
+| `mongoTemplate.updateMulti(...)` | Gửi **một lệnh** “đổi field X thành Y” xuống MongoDB | Chỉ đụng field cần đổi, không load hết entity |
+
+**Bài toán (tiếp §8):** Đổi `restaurant_id` từ `"30075445"` sang `"777888"` cho **tất cả món** trong collection `items`.
+
+#### Code đầy đủ (demo — `ItemRepositoryImpl`)
+
+```java
+@Repository
+@RequiredArgsConstructor
+public class ItemRepositoryImpl implements ItemRepositoryCustom {
+
+    private final MongoTemplate mongoTemplate;
+
+    @Override
+    public long updateRestaurantId(String oldId, String newId) {
+        Query query = new Query(Criteria.where("restaurant_id").is(oldId));
+        Update update = new Update().set("restaurant_id", newId);
+        UpdateResult result = mongoTemplate.updateMulti(query, update, ItemModel.class);
+        return result.getModifiedCount();
+    }
+}
+```
+
+**Dòng 1 — `MongoTemplate mongoTemplate`**
+
+- Lớp Spring thao tác MongoDB linh hoạt hơn `MongoRepository` (đã giới thiệu ở §7.4).
+- Dùng khi cần `Query` + `Update` tùy chỉnh mà derived method không đủ.
+- Đặt trong `*RepositoryImpl` (pattern Spring Data Custom) hoặc trực tiếp trong Service.
+
+**Dòng 2 — `Query query = new Query(Criteria.where("restaurant_id").is(oldId));`**
+
+| Thành phần | Vai trò | Tương đương MongoDB |
+|------------|---------|---------------------|
+| `Query` | Mô tả **điều kiện tìm** document nào sẽ bị ảnh hưởng | Phần **filter** trong `updateMany` |
+| `Criteria.where("restaurant_id")` | Chọn field trong **database** (snake_case, không phải `restaurantId` Java) | `{ restaurant_id: ... }` |
+| `.is(oldId)` | So khớp chính xác giá trị `oldId` | `{ restaurant_id: "30075445" }` |
+
+→ *“Chỉ chọn các document trong `items` có `restaurant_id` bằng `oldId`.”*
+
+**Dòng 3 — `Update update = new Update().set("restaurant_id", newId);`**
+
+| Thành phần | Vai trò | Tương đương MongoDB |
+|------------|---------|---------------------|
+| `Update` | Mô tả **thay đổi** áp dụng lên document đã khớp | Phần **update** trong `updateMany` |
+| `.set("restaurant_id", newId)` | Gán field `restaurant_id` = giá trị mới | `{ $set: { restaurant_id: "777888" } }` |
+
+→ Khác `save(entity)`: `save` ghi lại **toàn bộ** object; `Update.set` chỉ đụng **một field**.
+
+**Dòng 4 — `mongoTemplate.updateMulti(query, update, ItemModel.class);`**
+
+| Tham số | Ý nghĩa |
+|---------|---------|
+| `query` | Filter — document nào được cập nhật |
+| `update` | Thay đổi cụ thể (`$set`, `$unset`…) |
+| `ItemModel.class` | Collection suy ra từ `@Document` (hoặc dùng chuỗi `"items"`) |
+
+| Method | Số document tối đa cập nhật |
+|--------|------------------------------|
+| `updateFirst` | **1** document đầu tiên khớp |
+| `updateMulti` | **Tất cả** document khớp |
+
+**Dòng 5 — `result.getModifiedCount()`**
+
+- `UpdateResult` = kết quả từ MongoDB sau khi update.
+- `getModifiedCount()` = số document **thực sự bị thay đổi**.
+- Service §8 trả về số này để báo: *“Đã cập nhật 5 món.”*
+
+#### Tương đương `mongosh`
+
+```javascript
+db.items.updateMany(
+  { restaurant_id: "30075445" },              // ← filter (Query + Criteria)
+  { $set: { restaurant_id: "777888" } }       // ← update (Update.set)
+);
+// Kết quả: { matchedCount: N, modifiedCount: M, ... }
+```
+
+> **Lỗi thường gặp:** `db.items.find(..., { $set: ... })` — `find` chỉ **đọc**, không **ghi**.
+> Phải dùng `updateMany` / `updateOne`.
+
+#### So với cách `save()` trong vòng lặp (§8.5)
+
+```java
+// ❌ Chậm — mỗi món: 1 lần đọc + 1 lần ghi
+itemRepository.findByRestaurantId(oldId).forEach(item -> {
+    item.setRestaurantId(newId);
+    itemRepository.save(item);
+});
+
+// ✅ Nhanh hơn — 1 lần gọi DB
+itemRepository.updateRestaurantId(oldId, newId);  // bên trong: updateMulti
+```
+
+> Bài 6 sẽ **tóm tắt lại** pattern này và mở rộng thêm `BulkOperations` (gom nhiều lệnh ghi).
 
 ### 9.1. Interface custom
 
@@ -718,26 +942,28 @@ public interface ItemRepositoryCustom {
 
 ```java
 public interface ItemRepository
-        extends MongoRepository<Item, String>, ItemRepositoryCustom {
-    List<Item> findByRestaurantId(String restaurantId);
+        extends MongoRepository<ItemModel, String>, ItemRepositoryCustom {
+    List<ItemModel> findByRestaurantId(String restaurantId);
 }
 ```
 
-### 9.3. Lớp hiện thực — `updateMulti`
+### 9.3. Lớp hiện thực — gọi `updateMulti`
+
+Xem **§9.0** để hiểu từng dòng `Query` / `Update` / `updateMulti`. Code demo:
 
 ```java
 @Repository
+@RequiredArgsConstructor
 public class ItemRepositoryImpl implements ItemRepositoryCustom {
 
-    @Autowired
-    private MongoTemplate mongoTemplate;
+    private final MongoTemplate mongoTemplate;
 
     @Override
     public long updateRestaurantId(String oldId, String newId) {
         Query query = new Query(Criteria.where("restaurant_id").is(oldId));
         Update update = new Update().set("restaurant_id", newId);
         UpdateResult result = mongoTemplate.updateMulti(query, update, ItemModel.class);
-        return result.getModifiedCount();   // số item đã cập nhật
+        return result.getModifiedCount();
     }
 }
 ```
@@ -785,7 +1011,48 @@ public long updateRestaurantIdOptimized(String oldId, String newId) {
 | Đổi ID nhà hàng (Transaction)                   | `/restaurants/{id}/change-id` | POST   | redirect detail (ID mới) |
 
 
-### 10.2. Controller — trang chi tiết hiển thị quan hệ 1-n
+### 10.2. Controller — danh sách + chi tiết
+
+**Phân trang:** tái dùng `PagedResponse` + `PagedListView` từ Bài 4 (không trả `Page` ra Controller).
+Service `findPage` map `Page<RestaurantModel>` nội bộ → `PagedListView<RestaurantDto>`.
+
+```java
+// Service — chỉ Repository/Service thấy Page<Model>
+public PagedListView<RestaurantDto> findPage(Pageable pageable, String sortBy, String dir) {
+    Page<RestaurantModel> page = restaurantRepository.findAll(pageable);
+    return PagedListView.from(page, RestaurantDto::fromEntity, null, sortBy, dir, MAX_PAGES_TO_SHOW);
+}
+```
+
+**Danh sách** — Controller chỉ nhận DTO, không tự tính `startPage`/`endPage`:
+
+```java
+@GetMapping
+public String list(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "name") String sortBy,
+        @RequestParam(defaultValue = "asc") String dir,
+        Model model) {
+    Sort sort = dir.equalsIgnoreCase("desc")
+            ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+    PagedListView<RestaurantDto> listView = restaurantService.findPage(
+            PageRequest.of(Math.max(page, 0), pageSize, sort), sortBy, dir);
+    model.addAttribute("list", listView.getContent());
+    model.addAttribute("currentPage", listView.getPagination().getPage());
+    model.addAttribute("totalPages", listView.getPagination().getTotalPages());
+    model.addAttribute("startPage", listView.getStartPage());
+    model.addAttribute("endPage", listView.getEndPage());
+    model.addAttribute("sortBy", listView.getSortBy());
+    model.addAttribute("dir", listView.getDir());
+    return "restaurants/list";
+}
+```
+
+> **Xem code:** [`RestaurantService#findPage`](../../demo-bai5-mongodb-spring/java-springboot-bai5/src/main/java/vn/demo/service/RestaurantService.java) ·
+> [`RestaurantViewController#list`](../../demo-bai5-mongodb-spring/java-springboot-bai5/src/main/java/vn/demo/controller/web/RestaurantViewController.java) ·
+> [`dto/PagedResponse.java`](../../demo-bai5-mongodb-spring/java-springboot-bai5/src/main/java/vn/demo/dto/PagedResponse.java)
+
+**Chi tiết** — tận dụng `$lookup` từ §7:
 
 > Toàn bộ handler liên quan nhà hàng đặt trong **một class** dùng `@Controller` +
 > `@RequestMapping("/restaurants")` ở cấp class. Mỗi handler bên trong chỉ khai báo phần đường
@@ -996,5 +1263,6 @@ public String changeId(@PathVariable("id") String oldId,
 - [Spring Data MongoDB — Aggregation](https://docs.spring.io/spring-data/mongodb/reference/mongodb/aggregation-framework.html)
 - [Bài 3 — Spring Boot & MongoDB (1)](./java_m3_bai3_MongoDB_Spring_1.md)
 - [Bài 4 — Spring Boot & MongoDB (2)](./java_m3_bai4_MongoDB_Spring_2.md)
+- [Bài 6 — Tối ưu truy vấn MongoDB](./java_m3_bai6_Query_Optimization.md)
 - Demo: [`demo-bai5-mongodb-spring`](../../demo-bai5-mongodb-spring)
 

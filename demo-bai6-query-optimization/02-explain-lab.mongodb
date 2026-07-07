@@ -1,0 +1,31 @@
+// Bài 6 — Lab explain: COLLSCAN vs IXSCAN (syllabus §3, §10.4)
+// Chạy: mongosh db_java_t3h_module3 < 02-explain-lab.mongodb
+//
+// Lưu ý: nếu collection nhỏ, MongoDB đôi khi vẫn chọn COLLSCAN dù đã có index.
+// Import thêm dữ liệu (Bài 4 NDJSON) để thấy khác biệt rõ hơn.
+
+use db_java_t3h_module3;
+
+print("=== 1. Indexes hiện có trên restaurants ===");
+printjson(db.restaurants.getIndexes());
+
+print("\n=== 2. explain find theo borough ===");
+const plan = db.restaurants.find({ borough: "Brooklyn" }).explain("executionStats");
+print("winningPlan.stage (hoặc inputStage):");
+printjson(plan.queryPlanner.winningPlan);
+print("totalDocsExamined:", plan.executionStats.totalDocsExamined);
+print("nReturned:", plan.executionStats.nReturned);
+
+print("\n=== 3. Đảm bảo có index borough ===");
+db.restaurants.createIndex({ borough: 1 });
+
+print("\n=== 4. explain lại sau khi có index ===");
+const plan2 = db.restaurants.find({ borough: "Brooklyn" }).explain("executionStats");
+printjson(plan2.queryPlanner.winningPlan);
+print("totalDocsExamined:", plan2.executionStats.totalDocsExamined);
+print("nReturned:", plan2.executionStats.nReturned);
+
+print("\n=== Gợi ý đọc kết quả ===");
+print("- COLLSCAN = quét cả collection (thường chậm khi data lớn)");
+print("- IXSCAN   = dùng index (tốt hơn)");
+print("- totalDocsExamined >> nReturned → đọc thừa, xem lại index/điều kiện");

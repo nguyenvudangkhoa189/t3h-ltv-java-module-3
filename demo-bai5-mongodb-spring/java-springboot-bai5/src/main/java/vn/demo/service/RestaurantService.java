@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import vn.demo.dto.ItemWithRestaurantDto;
+import vn.demo.dto.PagedListView;
+import vn.demo.dto.RestaurantDto;
 import vn.demo.dto.RestaurantWithItemsDto;
 import vn.demo.exception.ResourceNotFoundException;
 import vn.demo.model.RestaurantModel;
@@ -35,14 +37,21 @@ import vn.demo.repository.RestaurantRepository;
 @RequiredArgsConstructor
 public class RestaurantService {
 
+	private static final int MAX_PAGES_TO_SHOW = 5;
+
 	private final RestaurantRepository restaurantRepository;
 	private final ItemRepository itemRepository;
 	/** Dùng để chạy aggregation pipeline ($lookup) — Repository thường không đủ cho join. */
 	private final MongoTemplate mongoTemplate;
 
-	/** Lấy 1 trang danh sách nhà hàng (phân trang Thymeleaf §10). */
-	public Page<RestaurantModel> findAll(Pageable pageable) {
-		return restaurantRepository.findAll(pageable);
+	/**
+	 * Lấy 1 trang danh sách nhà hàng — {@link PagedListView} (tái dùng pattern Bài 4 §6.0).
+	 *
+	 * <p>{@code Page&lt;RestaurantModel&gt;} chỉ tồn tại trong Service; Controller nhận DTO.</p>
+	 */
+	public PagedListView<RestaurantDto> findPage(Pageable pageable, String sortBy, String dir) {
+		Page<RestaurantModel> page = restaurantRepository.findAll(pageable);
+		return PagedListView.from(page, RestaurantDto::fromEntity, null, sortBy, dir, MAX_PAGES_TO_SHOW);
 	}
 
 	/**

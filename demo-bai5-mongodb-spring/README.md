@@ -6,6 +6,8 @@ Minh họa quan hệ **1-n** giữa 2 collection `restaurants` (cha) và `items`
 
 - Truy vấn liên kết bằng **`$lookup`** (mongosh + Spring `MongoTemplate`/`Aggregation`)
 - Trả kết quả bằng **DTO** (không `HashMap`)
+- **Phân trang:** `PagedResponse` + `PagedListView` (syllabus §10.2) — tái dùng từ Bài 4
+- **`MongoTemplate`:** `$lookup` (§7.4), `updateMulti` chi tiết (§9.0) — Bài 6 chỉ tóm tắt lại
 - Cập nhật nhiều collection bằng **Transaction** + tối ưu **`updateMulti`**
 - Giao diện **Thymeleaf** quản lý nhà hàng & món ăn
 
@@ -84,7 +86,8 @@ src/main/java/vn/demo/
 ├── DemoBai5MongoApplication.java
 ├── config/{MongoConfig,DataSeeder}.java
 ├── model/{RestaurantModel,ItemModel}.java
-├── dto/{RestaurantWithItemsDto,ItemWithRestaurantDto,ItemFormDto}.java
+├── dto/{RestaurantDto,RestaurantWithItemsDto,ItemWithRestaurantDto,ItemFormDto,
+│        PagedResponse,PageMapper,PagedListView}.java
 ├── repository/{RestaurantRepository,ItemRepository,ItemRepositoryCustom,ItemRepositoryImpl}.java
 ├── service/{RestaurantService,ItemService}.java
 ├── exception/ResourceNotFoundException.java
@@ -106,3 +109,4 @@ src/main/resources/
 - Syllabus: [`java_m3_bai5_Relationship_in_MongoDB.md`](../syllabus/module-3/java_m3_bai5_Relationship_in_MongoDB.md)
 - Bài 3: [`demo-bai3-mongodb-spring`](../demo-bai3-mongodb-spring)
 - Bài 4: [`demo-bai4-mongodb-spring`](../demo-bai4-mongodb-spring)
+- Bài 6: [`demo-bai6-query-optimization`](../demo-bai6-query-optimization)

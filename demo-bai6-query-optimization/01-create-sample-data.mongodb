@@ -1,0 +1,54 @@
+// Bài 6 — Dữ liệu mẫu restaurants + items (nhiều hơn Bài 5 để demo feed/search)
+// Chạy: mongosh db_java_t3h_module3 < 01-create-sample-data.mongodb
+
+use db_java_t3h_module3;
+
+db.restaurants.deleteMany({});
+db.items.deleteMany({});
+
+db.restaurants.insertMany([
+  { restaurant_id: "30075445", name: "Morris Park Bake Shop", borough: "Bronx", cuisine: "Bakery" },
+  { restaurant_id: "40356018", name: "Wild East", borough: "Brooklyn", cuisine: "Chinese" },
+  { restaurant_id: "40363171", name: "Carnegie Diner", borough: "Manhattan", cuisine: "American" },
+  { restaurant_id: "40364220", name: "Morning Star Cafe", borough: "Queens", cuisine: "American" },
+  { restaurant_id: "40364350", name: "Shop House Kitchen", borough: "Brooklyn", cuisine: "Thai" },
+  { restaurant_id: "40365001", name: "Asia Garden", borough: "Manhattan", cuisine: "Asian" },
+  { restaurant_id: "40365002", name: "Brooklyn Pizza Shop", borough: "Brooklyn", cuisine: "Pizza" },
+  { restaurant_id: "40365003", name: "Cafe Mocha", borough: "Bronx", cuisine: "Coffee" },
+  { restaurant_id: "40365004", name: "Dragon Palace", borough: "Queens", cuisine: "Chinese" },
+  { restaurant_id: "40365005", name: "Empire Burger", borough: "Manhattan", cuisine: "American" },
+  { restaurant_id: "40365006", name: "Fresh Salad Bar", borough: "Brooklyn", cuisine: "Healthy" },
+  { restaurant_id: "40365007", name: "Golden Bakery", borough: "Bronx", cuisine: "Bakery" }
+]);
+
+db.items.insertMany([
+  { restaurant_id: "30075445", name: "Cheeseburger", description: "Classic beef burger", price: 8.99, category: "Main" },
+  { restaurant_id: "30075445", name: "Fries", description: "Crispy fries", price: 3.49, category: "Side" },
+  { restaurant_id: "30075445", name: "Chocolate Cake", description: "House dessert", price: 5.99, category: "Dessert" },
+  { restaurant_id: "40356018", name: "Kung Pao Chicken", description: "Spicy stir-fry", price: 12.50, category: "Main" },
+  { restaurant_id: "40356018", name: "Spring Rolls", description: "Vegetable rolls", price: 4.50, category: "Appetizer" },
+  { restaurant_id: "40363171", name: "Club Sandwich", description: "Triple-decker", price: 11.00, category: "Main" },
+  { restaurant_id: "40363171", name: "Caesar Salad", description: "Fresh greens", price: 9.50, category: "Side" },
+  { restaurant_id: "40364220", name: "Pancakes", description: "Maple syrup", price: 7.50, category: "Main" },
+  { restaurant_id: "40364350", name: "Pad Thai", description: "Classic noodles", price: 10.00, category: "Main" },
+  { restaurant_id: "40365001", name: "Dumplings", description: "Steamed", price: 6.50, category: "Appetizer" },
+  { restaurant_id: "40365002", name: "Margherita", description: "Tomato basil", price: 14.00, category: "Main" },
+  { restaurant_id: "40365003", name: "Latte", description: "Espresso milk", price: 4.50, category: "Drink" },
+  { restaurant_id: "40365004", name: "Mapo Tofu", description: "Spicy tofu", price: 11.50, category: "Main" },
+  { restaurant_id: "40365005", name: "Double Burger", description: "Two patties", price: 13.00, category: "Main" },
+  { restaurant_id: "40365006", name: "Greek Salad", description: "Feta olives", price: 8.00, category: "Side" },
+  { restaurant_id: "40365007", name: "Croissant", description: "Butter pastry", price: 3.50, category: "Dessert" }
+]);
+
+// Index field hay query / khóa liên kết (§2 syllabus)
+db.restaurants.createIndex({ restaurant_id: 1 });
+db.restaurants.createIndex({ borough: 1 });
+db.items.createIndex({ restaurant_id: 1 });
+
+// Text index cho $text search (§4.3) — mỗi collection chỉ một text index
+db.restaurants.createIndex({ name: "text", cuisine: "text" });
+
+print("Seeded restaurants:", db.restaurants.countDocuments());
+print("Seeded items:", db.items.countDocuments());
+print("Indexes restaurants:", db.restaurants.getIndexes().length);
+print("Indexes items:", db.items.getIndexes().length);

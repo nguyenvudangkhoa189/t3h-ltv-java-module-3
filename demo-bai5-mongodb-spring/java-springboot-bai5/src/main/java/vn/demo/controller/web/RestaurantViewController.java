@@ -3,7 +3,6 @@ package vn.demo.controller.web;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
@@ -20,8 +19,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import vn.demo.dto.ItemFormDto;
+import vn.demo.dto.PagedListView;
+import vn.demo.dto.RestaurantDto;
 import vn.demo.dto.RestaurantWithItemsDto;
-import vn.demo.model.RestaurantModel;
 import vn.demo.service.ItemService;
 import vn.demo.service.RestaurantService;
 
@@ -35,8 +35,6 @@ import vn.demo.service.RestaurantService;
 @RequestMapping("/restaurants")
 @RequiredArgsConstructor
 public class RestaurantViewController {
-
-	private static final int MAX_PAGES_TO_SHOW = 5;
 
 	private final RestaurantService restaurantService;
 	private final ItemService itemService;
@@ -55,24 +53,16 @@ public class RestaurantViewController {
 				? Sort.by(sortBy).descending()
 				: Sort.by(sortBy).ascending();
 		// PageRequest.of: trang đánh số từ 0 (chuẩn Spring Data)
-		Page<RestaurantModel> restaurantPage = restaurantService.findAll(
-				PageRequest.of(Math.max(page, 0), pageSize, sort));
+		PagedListView<RestaurantDto> listView = restaurantService.findPage(
+				PageRequest.of(Math.max(page, 0), pageSize, sort), sortBy, dir);
 
-		int totalPages = restaurantPage.getTotalPages();
-		int currentPage = restaurantPage.getNumber();
-		int startPage = Math.max(0, currentPage - MAX_PAGES_TO_SHOW / 2);
-		int endPage = Math.min(totalPages - 1, startPage + MAX_PAGES_TO_SHOW - 1);
-		if ((endPage - startPage) < (MAX_PAGES_TO_SHOW - 1)) {
-			startPage = Math.max(0, endPage - (MAX_PAGES_TO_SHOW - 1));
-		}
-
-		model.addAttribute("list", restaurantPage.getContent());
-		model.addAttribute("currentPage", currentPage);
-		model.addAttribute("totalPages", totalPages);
-		model.addAttribute("startPage", startPage);
-		model.addAttribute("endPage", endPage);
-		model.addAttribute("sortBy", sortBy);
-		model.addAttribute("dir", dir);
+		model.addAttribute("list", listView.getContent());
+		model.addAttribute("currentPage", listView.getPagination().getPage());
+		model.addAttribute("totalPages", listView.getPagination().getTotalPages());
+		model.addAttribute("startPage", listView.getStartPage());
+		model.addAttribute("endPage", listView.getEndPage());
+		model.addAttribute("sortBy", listView.getSortBy());
+		model.addAttribute("dir", listView.getDir());
 		return "restaurants/list";
 	}
 
