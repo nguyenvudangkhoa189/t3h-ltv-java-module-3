@@ -1,7 +1,6 @@
 package vn.demo.controller;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
@@ -17,7 +16,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import vn.demo.dto.ImportResultDto;
-import vn.demo.model.RestaurantModel;
+import vn.demo.dto.PagedListView;
+import vn.demo.dto.RestaurantDto;
+import vn.demo.dto.RestaurantFormDto;
 import vn.demo.service.RestaurantService;
 
 /**
@@ -34,9 +35,6 @@ import vn.demo.service.RestaurantService;
 @Controller
 @RequiredArgsConstructor
 public class RestaurantViewController {
-
-	/** Số chỉ số trang tối đa hiển thị trên thanh phân trang. */
-	private static final int MAX_PAGES_TO_SHOW = 5;
 
 	private final RestaurantService restaurantService;
 
@@ -87,33 +85,23 @@ public class RestaurantViewController {
 				: Sort.by(sortBy).ascending();
 
 		// PageRequest.of(page, size, sort): trang đánh số từ 0
-		Page<RestaurantModel> restaurantPage = restaurantService.findAllPagination(
-				PageRequest.of(Math.max(page, 0), pageSize, sort));
+		PagedListView<RestaurantDto> listView = restaurantService.findPage(
+				PageRequest.of(Math.max(page, 0), pageSize, sort), sortBy, dir);
 
-		int totalPages = restaurantPage.getTotalPages();
-		int currentPage = restaurantPage.getNumber();
-
-		// Tính cửa sổ chỉ số trang hiển thị (quanh trang hiện tại) để thanh phân trang gọn
-		int startPage = Math.max(0, currentPage - MAX_PAGES_TO_SHOW / 2);
-		int endPage = Math.min(totalPages - 1, startPage + MAX_PAGES_TO_SHOW - 1);
-		if ((endPage - startPage) < (MAX_PAGES_TO_SHOW - 1)) {
-			startPage = Math.max(0, endPage - (MAX_PAGES_TO_SHOW - 1));
-		}
-
-		model.addAttribute("list", restaurantPage.getContent());
-		model.addAttribute("currentPage", currentPage);
-		model.addAttribute("totalPages", totalPages);
-		model.addAttribute("startPage", startPage);
-		model.addAttribute("endPage", endPage);
-		model.addAttribute("sortBy", sortBy);
-		model.addAttribute("dir", dir);
+		model.addAttribute("list", listView.getContent());
+		model.addAttribute("currentPage", listView.getPagination().getPage());
+		model.addAttribute("totalPages", listView.getPagination().getTotalPages());
+		model.addAttribute("startPage", listView.getStartPage());
+		model.addAttribute("endPage", listView.getEndPage());
+		model.addAttribute("sortBy", listView.getSortBy());
+		model.addAttribute("dir", listView.getDir());
 		return "restaurants/list";
 	}
 
 	/** GET /restaurants/detail/{id} — trang chi tiết (tìm theo restaurant_id). */
 	@GetMapping("/restaurants/detail/{id}")
 	public String showRestaurantDetail(@PathVariable String id, Model model) {
-		RestaurantModel restaurant = restaurantService.findByRestaurantId(id);
+		RestaurantFormDto restaurant = restaurantService.getFormByRestaurantId(id);
 		if (restaurant == null) {
 			return "restaurants/not-found";
 		}
@@ -125,14 +113,13 @@ public class RestaurantViewController {
 	@PostMapping("/restaurants/detail/{id}")
 	public String updateRestaurant(
 			@PathVariable String id,
-			@ModelAttribute RestaurantModel updatedRestaurant,
+			@ModelAttribute RestaurantFormDto updatedRestaurant,
 			RedirectAttributes redirectAttributes) {
-		RestaurantModel oldRestaurant = restaurantService.findByRestaurantId(id); // tìm bản ghi hiện tại
-		if (oldRestaurant == null) {
+		RestaurantFormDto saved = restaurantService.updateDetail(id, updatedRestaurant);
+		if (saved == null) {
 			redirectAttributes.addFlashAttribute("message", "Restaurant not found");
 			return "redirect:/restaurants";
 		}
-		restaurantService.updateDetail(oldRestaurant, updatedRestaurant);
 		redirectAttributes.addFlashAttribute("message", "Update data successfully");
 		return "redirect:/restaurants/detail/" + id; // PRG: vẫn ở lại trang chi tiết
 	}

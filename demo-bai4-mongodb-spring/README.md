@@ -51,6 +51,8 @@ mongoimport --db db_java_t3h_module3 --collection restaurants --file sample-data
 
 - **`@Controller`** trả về tên template; `handleUpload` đưa thông báo vào `Model` rồi trả
   `restaurants/upload` (không return chuỗi thông báo làm tên view).
+- Service chuyển **Model → DTO** trước khi trả Controller; Controller không dùng entity trực tiếp.
+- **Phân trang:** `PagedResponse` + `PagedListView` (§6.0 syllabus) — không trả `Page` ra Controller.
 - Model lồng nhau: `RestaurantModel` → `AddressModel`, `List<GradeModel>`; `@Field("restaurant_id")` +
   `@JsonProperty("restaurant_id")`.
 - Phân biệt **`_id`** (MongoDB) và **`restaurant_id`** (id nghiệp vụ) — chi tiết tìm theo
@@ -66,7 +68,7 @@ src/main/java/vn/demo/
 ├── model/{RestaurantModel,AddressModel,GradeModel}.java
 ├── repository/RestaurantRepository.java
 ├── service/RestaurantService.java       ← import NDJSON, pagination, update
-├── dto/ImportResultDto.java
+├── dto/{RestaurantDto,RestaurantFormDto,PagedResponse,PageMapper,PagedListView,ImportResultDto}.java
 └── controller/
     ├── HomeController.java              ← / → /restaurants
     └── RestaurantViewController.java    ← @Controller (upload/list/detail/update)

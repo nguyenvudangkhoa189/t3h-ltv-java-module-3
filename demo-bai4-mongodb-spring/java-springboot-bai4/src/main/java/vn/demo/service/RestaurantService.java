@@ -17,6 +17,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import vn.demo.dto.ImportResultDto;
+import vn.demo.dto.PagedListView;
+import vn.demo.dto.RestaurantDto;
+import vn.demo.dto.RestaurantFormDto;
 import vn.demo.model.RestaurantModel;
 import vn.demo.repository.RestaurantRepository;
 
@@ -33,6 +36,9 @@ public class RestaurantService {
 
 	/** Số document mỗi lần ghi xuống DB (ghi theo batch để tối ưu hiệu năng). */
 	private static final int BATCH_SIZE = 500;
+
+	/** Số chỉ số trang tối đa hiển thị trên thanh phân trang. */
+	private static final int MAX_PAGES_TO_SHOW = 5;
 
 	private final RestaurantRepository restaurantRepository;
 
@@ -92,34 +98,46 @@ public class RestaurantService {
 		return objectMapper.readValue(line, RestaurantModel.class);
 	}
 
-	/** Lấy 1 trang dữ liệu (có thể kèm sắp xếp qua Pageable). */
-	public Page<RestaurantModel> findAllPagination(Pageable pageable) {
-		return restaurantRepository.findAll(pageable);
+	/**
+	 * Lấy 1 trang dữ liệu — trả {@link PagedListView} (§6.0 syllabus).
+	 *
+	 * <p>Repository trả {@code Page&lt;RestaurantModel&gt;} nội bộ; Service chuyển sang
+	 * {@code PagedResponse&lt;RestaurantDto&gt;} qua {@link vn.demo.dto.PageMapper} — Controller không thấy {@code Page}.</p>
+	 */
+	public PagedListView<RestaurantDto> findPage(Pageable pageable, String sortBy, String dir) {
+		Page<RestaurantModel> page = restaurantRepository.findAll(pageable);
+		return PagedListView.from(page, RestaurantDto::fromEntity, null, sortBy, dir, MAX_PAGES_TO_SHOW);
 	}
 
 	/** Tìm restaurant theo id nghiệp vụ (restaurant_id). */
-	public RestaurantModel findByRestaurantId(String restaurantId) {
-		return restaurantRepository.findFirstByRestaurantId(restaurantId);
+	public RestaurantFormDto getFormByRestaurantId(String restaurantId) {
+		RestaurantModel restaurant = restaurantRepository.findFirstByRestaurantId(restaurantId);
+		return RestaurantFormDto.fromEntity(restaurant);
 	}
 
 	/**
 	 * Cập nhật thông tin cơ bản; chỉ ghi đè field có giá trị mới (partial update).
 	 *
-	 * @param oldObject bản ghi hiện tại trong DB
-	 * @param newObject dữ liệu mới từ form
-	 * @return bản ghi sau khi lưu
+	 * @param restaurantId id nghiệp vụ cần sửa
+	 * @param newObject    dữ liệu mới từ form
+	 * @return form sau khi lưu; {@code null} nếu không tìm thấy
 	 */
-	public RestaurantModel updateDetail(RestaurantModel oldObject, RestaurantModel newObject) {
-		if (newObject.getName() != null) {
-			oldObject.setName(newObject.getName());
+	public RestaurantFormDto updateDetail(String restaurantId, RestaurantFormDto newObject) {
+		RestaurantModel oldObject = restaurantRepository.findFirstByRestaurantId(restaurantId);
+		if (oldObject == null) {
+			return null;
 		}
-		if (newObject.getBorough() != null) {
-			oldObject.setBorough(newObject.getBorough());
+		RestaurantModel changes = newObject.toEntity();
+		if (changes.getName() != null) {
+			oldObject.setName(changes.getName());
 		}
-		if (newObject.getCuisine() != null) {
-			oldObject.setCuisine(newObject.getCuisine());
+		if (changes.getBorough() != null) {
+			oldObject.setBorough(changes.getBorough());
 		}
-		return restaurantRepository.save(oldObject);
+		if (changes.getCuisine() != null) {
+			oldObject.setCuisine(changes.getCuisine());
+		}
+		return RestaurantFormDto.fromEntity(restaurantRepository.save(oldObject));
 	}
 
 }

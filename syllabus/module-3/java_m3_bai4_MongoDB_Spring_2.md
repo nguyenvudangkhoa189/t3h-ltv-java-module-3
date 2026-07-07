@@ -5,6 +5,7 @@
 Sau bài này, học viên có thể:
 
 - Quản lý dữ liệu MongoDB **qua giao diện web** (Thymeleaf) thay vì chỉ qua API
+- Tách **Model** và **DTO**; Service chuyển Model ↔ DTO trước khi trả Controller
 - Dùng **thuần `@Controller`** (không `@RestController`) cho toàn bộ ứng dụng web
 - **Import dữ liệu từ file** (định dạng **NDJSON** — mỗi dòng 1 object) và lưu theo **batch**
 - Cấu hình giới hạn kích thước file upload (`spring.servlet.multipart.*`)
@@ -85,7 +86,12 @@ src/main/java/vn/demo/
 ├── service/
 │   └── RestaurantService.java           ← SERVICE: import, phân trang, update
 ├── dto/
-│   └── ImportResultDto.java             ← DTO: kết quả import (success/message/count)
+│   ├── RestaurantDto.java               ← DTO: hiển thị trên danh sách
+│   ├── RestaurantFormDto.java           ← DTO: form chi tiết / cập nhật
+│   ├── PagedResponse.java               ← DTO phân trang offset generic (enterprise)
+│   ├── PageMapper.java                  ← utility: Page&lt;Model&gt; → PagedResponse&lt;Dto&gt;
+│   ├── PagedListView.java               ← bọc PagedResponse + metadata UI (sort, cửa sổ trang)
+│   └── ImportResultDto.java             ← DTO: kết quả import
 └── controller/
     ├── HomeController.java              ← / → /restaurants
     └── RestaurantViewController.java    ← @Controller: upload/list/detail/update
@@ -104,13 +110,14 @@ src/main/resources/
 |------|---------------|-----------------|
 | **Model (Entity)** | `RestaurantModel`, `AddressModel`, `GradeModel` | Mô tả document + các object lồng nhau; ánh xạ field ↔ thuộc tính |
 | **Repository** | `RestaurantRepository` | Truy cập MongoDB; phân trang (`findAll(Pageable)`); tìm theo `restaurant_id` |
-| **Service** | `RestaurantService` | Nghiệp vụ: đọc file NDJSON theo batch, phân trang, cập nhật partial |
-| **DTO** | `ImportResultDto` | Gói kết quả import (thành công? thông báo? số lượng?) gửi về controller |
+| **Service** | `RestaurantService` | Nghiệp vụ: import NDJSON, phân trang, cập nhật; **chuyển Model ↔ DTO** |
+| **DTO** | `RestaurantDto`, `RestaurantFormDto`, `PagedResponse`, `PagedListView`, `ImportResultDto` | Dữ liệu gửi về Controller; entity không lộ ra ngoài Service |
 | **Controller (web)** | `RestaurantViewController` | Nhận request, gọi Service, đẩy dữ liệu vào `Model`, trả tên view |
 | **Controller (home)** | `HomeController` | Điều hướng `/` → `/restaurants` |
 
 > **Quy tắc vàng:** `Controller → Service → Repository → MongoDB`. Controller không gọi thẳng
-> Repository; Service không biết gì về HTTP (request/response).
+> Repository; Service không biết gì về HTTP. **Controller không làm việc trực tiếp với entity** —
+> Service chuyển `RestaurantModel` sang DTO trước khi trả về.
 
 ---
 
@@ -293,53 +300,75 @@ Tạo trang `/restaurants` hiển thị dữ liệu trong bảng (`th:each`). M�
 Nếu hiển thị toàn bộ dữ liệu cùng lúc sẽ không hiệu quả khi dữ liệu lớn. Ta phân trang, mỗi
 trang một số dòng cố định (`page-size`).
 
+### 6.0. Vì sao dùng `PagedResponse`? (từ Bài 4 trở đi dùng luôn)
+
+Ở **Bài 3 §6.1** đã so sánh `Page` (Spring Data) với `PagedResponse` generic. **Từ Bài 4**, demo
+dùng **luôn** pattern enterprise — không trả `Page` ra Controller:
+
+| Lý do | Giải thích ngắn |
+|-------|-----------------|
+| Không lộ framework | `Page` thuộc Spring Data; `PagedResponse<T>` là contract của app |
+| Tái sử dụng | Một class phân trang dùng cho mọi entity (`RestaurantDto`, `MovieDto`…) |
+| Tách UI khỏi API | `PagedListView` chứa `sortBy`, cửa sổ trang; `PagedResponse` giữ thuần metadata |
+
+**Luồng chuẩn:** `Repository → Page<Model>` (nội bộ Service) → `PageMapper` → `PagedResponse<Dto>`
+→ `PagedListView<Dto>` (nếu cần metadata Thymeleaf) → Controller.
+
+> **Xem code:** [`dto/PagedResponse.java`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/dto/PagedResponse.java) ·
+> [`dto/PageMapper.java`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/dto/PageMapper.java) ·
+> [`dto/PagedListView.java`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/dto/PagedListView.java)
+
+> Chi tiết lý do (đã học ở Bài 3): [Bài 3 §6.1](./java_m3_bai3_MongoDB_Spring_1.md#61-phân-trang-làm-nhanh-trả-page--vì-sao-enterprise-tách-pagedresponse).
+
 > **Phân trang 0-indexed (rất quan trọng):** `PageRequest.of(page, size)` đánh số trang **bắt
 > đầu từ 0**. Với `pageSize = 10`:
 > - `?page=0` → 10 bản ghi đầu (chỉ số 0–9), hiển thị là **"Trang 1"**
 > - `?page=1` → bản ghi 10–19, hiển thị **"Trang 2"**
 > - `?page=k` → bản ghi `k*10` … `k*10+9`, hiển thị **"Trang k+1"**
 
-### 6.1. Controller tính cửa sổ số trang
+### 6.1. Controller gọi Service, nhận DTO phân trang
 
 ```java
 @GetMapping("/restaurants")
 public String listRestaurants(
-        @RequestParam(defaultValue = "0") int page,        // page bắt đầu từ 0
+        @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "name") String sortBy,
         @RequestParam(defaultValue = "asc") String dir,
         Model model) {
 
     Sort sort = dir.equalsIgnoreCase("desc")
             ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
-    Page<RestaurantModel> restaurantPage = restaurantService.findAllPagination(
-            PageRequest.of(Math.max(page, 0), pageSize, sort));
+    PagedListView<RestaurantDto> listView = restaurantService.findPage(
+            PageRequest.of(Math.max(page, 0), pageSize, sort), sortBy, dir);
 
-    int totalPages = restaurantPage.getTotalPages();
-    int currentPage = restaurantPage.getNumber();
-    int maxPagesToShow = 5;
-    int startPage = Math.max(0, currentPage - maxPagesToShow / 2);
-    int endPage = Math.min(totalPages - 1, startPage + maxPagesToShow - 1);
-    if ((endPage - startPage) < (maxPagesToShow - 1)) {
-        startPage = Math.max(0, endPage - (maxPagesToShow - 1));
-    }
-    model.addAttribute("list", restaurantPage.getContent());
-    model.addAttribute("currentPage", currentPage);
-    model.addAttribute("totalPages", totalPages);
-    model.addAttribute("startPage", startPage);
-    model.addAttribute("endPage", endPage);
-    model.addAttribute("sortBy", sortBy);
-    model.addAttribute("dir", dir);
+    model.addAttribute("list", listView.getContent());
+    model.addAttribute("currentPage", listView.getPagination().getPage());
+    model.addAttribute("totalPages", listView.getPagination().getTotalPages());
+    model.addAttribute("startPage", listView.getStartPage());
+    model.addAttribute("endPage", listView.getEndPage());
+    model.addAttribute("sortBy", listView.getSortBy());
+    model.addAttribute("dir", listView.getDir());
     return "restaurants/list";
 }
 ```
 
-### 6.2. Service
+> **Xem code:** [`RestaurantViewController#listRestaurants`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/controller/RestaurantViewController.java)
+
+### 6.2. Service chuyển Model → DTO (pattern enterprise)
 
 ```java
-public Page<RestaurantModel> findAllPagination(Pageable pageable) {
-    return restaurantRepository.findAll(pageable);
+public PagedListView<RestaurantDto> findPage(Pageable pageable, String sortBy, String dir) {
+    Page<RestaurantModel> page = restaurantRepository.findAll(pageable);
+    return PagedListView.from(page, RestaurantDto::fromEntity, null, sortBy, dir, MAX_PAGES_TO_SHOW);
 }
 ```
+
+`PagedListView.from(...)` gọi `PageMapper.map(page, RestaurantDto::fromEntity)` để tạo
+`PagedResponse<RestaurantDto>`, đồng thời tính **cửa sổ 5 nút trang** (`startPage`/`endPage`)
+cho thanh phân trang Thymeleaf.
+
+> **Xem code đầy đủ:** [`service/RestaurantService.java#findPage`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/service/RestaurantService.java) ·
+> [`controller/RestaurantViewController.java`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/controller/RestaurantViewController.java)
 
 ### 6.3. HTML thanh phân trang
 
@@ -389,7 +418,7 @@ Trong demo, hướng sắp xếp được truyền qua `?sortBy=name&dir=asc|des
 ```java
 @GetMapping("/restaurants/detail/{id}")
 public String showRestaurantDetail(@PathVariable String id, Model model) {
-    RestaurantModel restaurant = restaurantService.findByRestaurantId(id);  // tìm theo restaurant_id
+    RestaurantFormDto restaurant = restaurantService.getFormByRestaurantId(id);
     if (restaurant == null) return "restaurants/not-found";
     model.addAttribute("restaurant", restaurant);
     return "restaurants/detail";
@@ -397,31 +426,34 @@ public String showRestaurantDetail(@PathVariable String id, Model model) {
 
 @PostMapping("/restaurants/detail/{id}")
 public String updateRestaurant(@PathVariable String id,
-        @ModelAttribute RestaurantModel updatedRestaurant,
+        @ModelAttribute RestaurantFormDto updatedRestaurant,
         RedirectAttributes redirectAttributes) {
-    RestaurantModel oldRestaurant = restaurantService.findByRestaurantId(id);
-    if (oldRestaurant == null) {
+    RestaurantFormDto saved = restaurantService.updateDetail(id, updatedRestaurant);
+    if (saved == null) {
         redirectAttributes.addFlashAttribute("message", "Restaurant not found");
         return "redirect:/restaurants";
     }
-    restaurantService.updateDetail(oldRestaurant, updatedRestaurant);
     redirectAttributes.addFlashAttribute("message", "Update data successfully");
-    return "redirect:/restaurants/detail/" + id;   // PRG: ở lại trang chi tiết
+    return "redirect:/restaurants/detail/" + id;
 }
 ```
 
 ### 8.2. Service tìm theo `restaurant_id` + cập nhật partial
 
 ```java
-public RestaurantModel findByRestaurantId(String restaurantId) {
-    return restaurantRepository.findFirstByRestaurantId(restaurantId);
+public RestaurantFormDto getFormByRestaurantId(String restaurantId) {
+    RestaurantModel model = restaurantRepository.findFirstByRestaurantId(restaurantId);
+    return RestaurantFormDto.fromEntity(model);
 }
 
-public RestaurantModel updateDetail(RestaurantModel oldObject, RestaurantModel newObject) {
-    if (newObject.getName() != null)    oldObject.setName(newObject.getName());
-    if (newObject.getBorough() != null) oldObject.setBorough(newObject.getBorough());
-    if (newObject.getCuisine() != null) oldObject.setCuisine(newObject.getCuisine());
-    return restaurantRepository.save(oldObject);
+public RestaurantFormDto updateDetail(String restaurantId, RestaurantFormDto form) {
+    RestaurantModel existing = restaurantRepository.findFirstByRestaurantId(restaurantId);
+    if (existing == null) return null;
+    RestaurantModel changes = form.toEntity();
+    if (changes.getName() != null)    existing.setName(changes.getName());
+    if (changes.getBorough() != null) existing.setBorough(changes.getBorough());
+    if (changes.getCuisine() != null) existing.setCuisine(changes.getCuisine());
+    return RestaurantFormDto.fromEntity(restaurantRepository.save(existing));
 }
 ```
 
@@ -444,6 +476,8 @@ RestaurantModel findFirstByRestaurantId(String restaurantId);
 ```
 
 > **Xem code:** [`controller/RestaurantViewController.java`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/controller/RestaurantViewController.java) ·
+> [`dto/RestaurantDto.java`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/dto/RestaurantDto.java) ·
+> [`dto/RestaurantFormDto.java`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/java/vn/demo/dto/RestaurantFormDto.java) ·
 > [templates `restaurants/`](../../demo-bai4-mongodb-spring/java-springboot-bai4/src/main/resources/templates/restaurants)
 
 ---
@@ -505,4 +539,5 @@ RestaurantModel findFirstByRestaurantId(String restaurantId);
 - [mongoimport](https://www.mongodb.com/docs/database-tools/mongoimport/)
 - Dữ liệu mẫu: https://www.w3resource.com/mongodb-exercises/restaurants.zip
 - [Bài 3 — Spring Boot & MongoDB (1)](./java_m3_bai3_MongoDB_Spring_1.md)
+- [Bài 6 — Tối ưu truy vấn MongoDB](./java_m3_bai6_Query_Optimization.md)
 - Demo: [`demo-bai4-mongodb-spring`](../../demo-bai4-mongodb-spring)
