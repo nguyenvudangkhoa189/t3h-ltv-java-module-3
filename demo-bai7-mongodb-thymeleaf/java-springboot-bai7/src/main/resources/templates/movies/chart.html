@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zxx" xmlns:th="http://www.thymeleaf.org">
+<!-- Chart — aggregation MongoDB + Chart.js -->
+<head th:replace="~{fragments/layout :: head('Top Countries — Netflix')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('chart')}"></header>
+
+<section class="blog spad">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="section-title">
+                    <h4>Top countries (Netflix dataset)</h4>
+                </div>
+                <div style="width: 100%; max-width: 800px; height: 400px; margin: 0 auto;">
+                    <canvas id="barChart"></canvas>
+                </div>
+                <p style="margin-top: 20px;"><a th:href="@{/movies}">&larr; Quay lại trang chủ</a></p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script th:inline="javascript">
+    /* Labels + counts từ Controller (aggregation động) */
+    const languages = /*[[${labels}]]*/ [];
+    const counts = /*[[${counts}]]*/ [];
+    const ctx = document.getElementById('barChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: languages,
+            datasets: [{
+                label: 'Number of Titles',
+                data: counts,
+                backgroundColor: '#e53637'
+            }]
+        }
+    });
+</script>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

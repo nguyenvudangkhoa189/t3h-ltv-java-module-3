@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zxx" xmlns:th="http://www.thymeleaf.org">
+<!-- Fragment card phim + sidebar (Top Views / New Comment) -->
+
+<!-- 1 card trong grid (biến r = MovieCardDto) -->
+<div th:fragment="productCard(r)" class="col-lg-4 col-md-6 col-sm-6">
+    <div class="product__item">
+        <a class="product__item__pic set-bg"
+           th:href="@{/movies/detail/{id}(id=${r.id})}"
+           th:attr="data-setbg=${r.posterUrl}">
+            <div class="ep" th:text="${r.releaseYear}">2020</div>
+            <div class="comment"><i class="fa fa-comments"></i> <span th:text="${r.rating}">PG</span></div>
+            <div class="view"><i class="fa fa-eye"></i> <span th:text="${r.duration}">90 min</span></div>
+        </a>
+        <div class="product__item__text">
+            <ul>
+                <li th:text="${r.type}">Movie</li>
+                <li th:text="${r.genreLabel}">Drama</li>
+            </ul>
+            <h5><a th:href="@{/movies/detail/{id}(id=${r.id})}" th:text="${r.title}">Title</a></h5>
+        </div>
+    </div>
+</div>
+
+<!-- Sidebar phải: Top Views + New Comment (cần topViews, sidebarComments) -->
+<div th:fragment="productSidebar" class="product__sidebar">
+    <div class="product__sidebar__view">
+        <div class="section-title">
+            <h5>Top Views</h5>
+        </div>
+        <ul class="filter__controls">
+            <li class="active" data-filter="*">Day</li>
+            <li data-filter=".week">Week</li>
+            <li data-filter=".month">Month</li>
+            <li data-filter=".years">Years</li>
+        </ul>
+        <div class="filter__gallery">
+            <a class="product__sidebar__view__item set-bg mix day years"
+               th:each="t : ${topViews}"
+               th:href="@{/movies/detail/{id}(id=${t.id})}"
+               th:attr="data-setbg=${t.posterUrl}">
+                <div class="ep" th:text="${t.releaseYear}">2020</div>
+                <div class="view"><i class="fa fa-eye"></i> <span th:text="${t.duration}">90 min</span></div>
+                <h5 th:text="${t.title}">Title</h5>
+            </a>
+        </div>
+    </div>
+    <div class="product__sidebar__comment">
+        <div class="section-title">
+            <h5>New Comment</h5>
+        </div>
+        <div class="product__sidebar__comment__item" th:each="s : ${sidebarComments}">
+            <div class="product__sidebar__comment__item__pic">
+                <a th:href="@{/movies/detail/{id}(id=${s.movieId})}">
+                    <img th:src="${s.posterUrl}" alt="">
+                </a>
+            </div>
+            <div class="product__sidebar__comment__item__text">
+                <ul>
+                    <li th:text="${s.authorName}">Guest</li>
+                </ul>
+                <h5><a th:href="@{/movies/detail/{id}(id=${s.movieId})}" th:text="${s.movieTitle}">Title</a></h5>
+                <span th:text="${s.messagePreview}">Comment preview</span>
+            </div>
+        </div>
+        <p th:if="${#lists.isEmpty(sidebarComments)}" style="color:#b7b7b7;font-size:13px;">Chưa có bình luận.</p>
+    </div>
+</div>
+
+</html>

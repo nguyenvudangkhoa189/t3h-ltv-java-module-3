@@ -948,3 +948,4 @@ public List<ItemSummaryDto> byRestaurantId(@RequestParam String restaurantId) {
 - [Bài 3 — Spring Boot & MongoDB (1)](./java_m3_bai3_MongoDB_Spring_1.md)
 - Demo: [`demo-bai6-query-optimization`](../../demo-bai6-query-optimization)
 - Demo Bài 5: [`demo-bai5-mongodb-spring`](../../demo-bai5-mongodb-spring)
+- **Tiếp theo:** [Bài 7 — Kết hợp Database và Template](./java_m3_bai7_Database_Query_To_FrontEnd.md)

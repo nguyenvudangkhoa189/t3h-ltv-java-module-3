@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zxx" xmlns:th="http://www.thymeleaf.org">
+<!-- Trang chủ — chỉ giữ nội dung riêng; head/header/footer lấy từ fragments -->
+<head th:replace="~{fragments/layout :: head('Anime | Homepage')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: preloader}"></div>
+<header th:replace="~{fragments/layout :: header('home')}"></header>
+
+<!-- Hero: 3 slide từ MongoDB -->
+<section class="hero">
+    <div class="container">
+        <div class="hero__slider owl-carousel">
+            <div class="hero__items set-bg" th:each="h : ${hero}" th:attr="data-setbg=${h.posterUrl}">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="hero__text">
+                            <div class="label" th:text="${h.genreLabel}">Adventure</div>
+                            <h2>
+                                <a th:href="@{/movies/detail/{id}(id=${h.id})}" th:text="${h.title}"
+                                   style="color:inherit;text-decoration:none;">Title</a>
+                            </h2>
+                            <p th:text="${h.description}">Description</p>
+                            <a th:href="@{/movies/detail/{id}(id=${h.id})}">
+                                <span>Watch Now</span> <i class="fa fa-angle-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Các section phim + sidebar -->
+<section class="product spad">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Trending -->
+                <div class="trending__product">
+                    <div class="row">
+                        <div class="col-lg-8 col-md-8 col-sm-8">
+                            <div class="section-title"><h4>Trending Now</h4></div>
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-4">
+                            <div class="btn__all">
+                                <a th:href="@{/movies/home}" class="primary-btn">View All <span class="arrow_right"></span></a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <th:block th:each="r : ${trending}">
+                            <div th:replace="~{fragments/movie :: productCard(${r})}"></div>
+                        </th:block>
+                    </div>
+                </div>
+                <!-- Popular -->
+                <div class="popular__product">
+                    <div class="row">
+                        <div class="col-lg-8 col-md-8 col-sm-8">
+                            <div class="section-title"><h4>Popular Shows</h4></div>
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-4">
+                            <div class="btn__all">
+                                <a th:href="@{/movies/home}" class="primary-btn">View All <span class="arrow_right"></span></a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <th:block th:each="r : ${popular}">
+                            <div th:replace="~{fragments/movie :: productCard(${r})}"></div>
+                        </th:block>
+                    </div>
+                </div>
+                <!-- Recent -->
+                <div class="recent__product">
+                    <div class="row">
+                        <div class="col-lg-8 col-md-8 col-sm-8">
+                            <div class="section-title"><h4>Recently Added Shows</h4></div>
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-4">
+                            <div class="btn__all">
+                                <a th:href="@{/movies/home}" class="primary-btn">View All <span class="arrow_right"></span></a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <th:block th:each="r : ${recent}">
+                            <div th:replace="~{fragments/movie :: productCard(${r})}"></div>
+                        </th:block>
+                    </div>
+                </div>
+                <!-- Live Action -->
+                <div class="live__product">
+                    <div class="row">
+                        <div class="col-lg-8 col-md-8 col-sm-8">
+                            <div class="section-title"><h4>Live Action</h4></div>
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-4">
+                            <div class="btn__all">
+                                <a th:href="@{/movies/home}" class="primary-btn">View All <span class="arrow_right"></span></a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <th:block th:each="r : ${liveAction}">
+                            <div th:replace="~{fragments/movie :: productCard(${r})}"></div>
+                        </th:block>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6 col-sm-8">
+                <div th:replace="~{fragments/movie :: productSidebar}"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: search}"></div>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

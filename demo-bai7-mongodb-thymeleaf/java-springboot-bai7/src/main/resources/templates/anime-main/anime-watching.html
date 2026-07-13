@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zxx" xmlns:th="http://www.thymeleaf.org">
+<!-- Watching — video mẫu + episodes + bình luận -->
+<head th:replace="~{fragments/layout :: head('Anime | Watching')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: preloader}"></div>
+<header th:replace="~{fragments/layout :: header('categories')}"></header>
+
+<div class="breadcrumb-option">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="breadcrumb__links">
+                    <a th:href="@{/movies}"><i class="fa fa-home"></i> Home</a>
+                    <a th:href="@{/movies/home}">Categories</a>
+                    <a th:href="@{/movies/detail/{id}(id=${movie.id})}" th:text="${movie.genreLabel}">Genre</a>
+                    <span th:text="${movie.title}">Title</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="anime-details spad">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="anime__video__player">
+                    <video id="player" playsinline controls data-poster="/videos/anime-watch.jpg">
+                        <source src="/videos/1.mp4" type="video/mp4"/>
+                        <track kind="captions" label="English captions" src="#" srclang="en" default/>
+                    </video>
+                </div>
+                <div class="anime__details__episodes">
+                    <div class="section-title">
+                        <h5 th:text="${movie.title}">Episodes</h5>
+                    </div>
+                    <a th:each="ep, iter : ${movie.episodes}"
+                       th:href="@{/movies/watching/{id}(id=${movie.id}, ep=${iter.count})}"
+                       th:text="${ep}"
+                       th:classappend="${iter.count == currentEp} ? ' active' : ''">Ep 01</a>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-8">
+                <div th:replace="~{fragments/comments :: reviewList}"></div>
+                <div th:replace="~{fragments/comments :: commentForm(@{/movies/watching/{id}(id=${movie.id})})}"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: search}"></div>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

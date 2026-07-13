@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zxx" xmlns:th="http://www.thymeleaf.org">
+<!--
+  FRAGMENTS dùng chung (Bài 7).
+  Cách dùng: th:replace="~{fragments/layout :: head('Tiêu đề')}"
+-->
+
+<!-- CSS + meta + title -->
+<head th:fragment="head(pageTitle)">
+    <meta charset="UTF-8">
+    <meta name="description" content="Anime Template">
+    <meta name="keywords" content="Anime, unica, creative, html">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title th:text="${pageTitle}">Anime | Template</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="/css/font-awesome.min.css" type="text/css">
+    <link rel="stylesheet" href="/css/elegant-icons.css" type="text/css">
+    <link rel="stylesheet" href="/css/plyr.css" type="text/css">
+    <link rel="stylesheet" href="/css/nice-select.css" type="text/css">
+    <link rel="stylesheet" href="/css/owl.carousel.min.css" type="text/css">
+    <link rel="stylesheet" href="/css/slicknav.min.css" type="text/css">
+    <link rel="stylesheet" href="/css/style.css" type="text/css">
+</head>
+
+<body>
+
+<!-- Preloader -->
+<div th:fragment="preloader" id="preloder">
+    <div class="loader"></div>
+</div>
+
+<!--
+  Header — tham số active: 'home' | 'categories' | 'chart'
+-->
+<header th:fragment="header(active)" class="header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-2">
+                <div class="header__logo">
+                    <a th:href="@{/movies}"><img src="/img/logo.png" alt=""></a>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="header__nav">
+                    <nav class="header__menu mobile-menu">
+                        <ul>
+                            <li th:classappend="${active == 'home'} ? 'active'">
+                                <a th:href="@{/movies}">Homepage</a>
+                            </li>
+                            <li th:classappend="${active == 'categories'} ? 'active'">
+                                <a th:href="@{/movies/home}">Categories <span class="arrow_carrot-down"></span></a>
+                                <ul class="dropdown">
+                                    <li><a th:href="@{/movies/home}">Categories</a></li>
+                                    <li><a th:href="@{/movies/chart}">Chart</a></li>
+                                </ul>
+                            </li>
+                            <li th:classappend="${active == 'chart'} ? 'active'">
+                                <a th:href="@{/movies/chart}">Our Blog</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+            <div class="col-lg-2">
+                <div class="header__right">
+                    <a href="#" class="search-switch"><span class="icon_search"></span></a>
+                </div>
+            </div>
+        </div>
+        <div id="mobile-menu-wrap"></div>
+    </div>
+</header>
+
+<!-- Footer -->
+<footer th:fragment="footer" class="footer">
+    <div class="page-up">
+        <a href="#" id="scrollToTopButton"><span class="arrow_carrot-up"></span></a>
+    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-3">
+                <div class="footer__logo">
+                    <a th:href="@{/movies}"><img src="/img/logo.png" alt=""></a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="footer__nav">
+                    <ul>
+                        <li><a th:href="@{/movies}">Homepage</a></li>
+                        <li><a th:href="@{/movies/home}">Categories</a></li>
+                        <li><a th:href="@{/movies/chart}">Our Blog</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <p>Copyright &copy;<script>document.write(new Date().getFullYear());</script>
+                    All rights reserved | Template by <a href="https://colorlib.com" target="_blank">Colorlib</a></p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- Search overlay -->
+<div th:fragment="search" class="search-model">
+    <div class="h-100 d-flex align-items-center justify-content-center">
+        <div class="search-close-switch"><i class="icon_close"></i></div>
+        <form class="search-model-form">
+            <input type="text" id="search-input" placeholder="Search here.....">
+        </form>
+    </div>
+</div>
+
+<!-- JS plugins -->
+<th:block th:fragment="scripts">
+    <script src="/js/jquery-3.3.1.min.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="/js/player.js"></script>
+    <script src="/js/jquery.nice-select.min.js"></script>
+    <script src="/js/mixitup.min.js"></script>
+    <script src="/js/jquery.slicknav.js"></script>
+    <script src="/js/owl.carousel.min.js"></script>
+    <script src="/js/main.js"></script>
+</th:block>
+
+</body>
+</html>
