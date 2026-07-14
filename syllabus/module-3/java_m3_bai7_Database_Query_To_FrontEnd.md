@@ -1000,3 +1000,4 @@ Các mục sau **đã có trong demo** và được mô tả trong bài:
 - [Spring Data MongoDB — Aggregation](https://docs.spring.io/spring-data/mongodb/reference/mongodb/aggregation-framework.html)  
 - [Bài 3](./java_m3_bai3_MongoDB_Spring_1.md) · [Bài 4](./java_m3_bai4_MongoDB_Spring_2.md) · [Bài 6](./java_m3_bai6_Query_Optimization.md)  
 - Demo: [`demo-bai7-mongodb-thymeleaf`](../../demo-bai7-mongodb-thymeleaf) · README: [`README.md`](../../demo-bai7-mongodb-thymeleaf/README.md)
+- **Tiếp theo:** [Bài 8 — Unit Testing](./java_m3_bai8_Unit_Testing.md)
