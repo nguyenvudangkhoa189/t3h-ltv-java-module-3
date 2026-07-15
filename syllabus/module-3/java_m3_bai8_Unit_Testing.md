@@ -994,5 +994,5 @@ flowchart LR
 - [Bài 3 — Spring Boot & MongoDB (1)](./java_m3_bai3_MongoDB_Spring_1.md)
 - [Bài 7 — Database Query To FrontEnd](./java_m3_bai7_Database_Query_To_FrontEnd.md)
 - **Demo chuẩn:** [`demo-bai8-unit-testing`](../../demo-bai8-unit-testing) · [README](../../demo-bai8-unit-testing/README.md)
-- **Tiếp theo:** [Bài 9 — Online Payment](../java_m3_bai9_Online_Payment.pdf) *(PDF; syllabus Markdown khi có)*
+- **Tiếp theo:** [Bài 9 — Online Payment](./java_m3_bai9_Online_Payment.md)
 

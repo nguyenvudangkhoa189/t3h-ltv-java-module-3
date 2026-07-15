@@ -74,8 +74,13 @@ public class RestaurantQueryService {
 	 * <p>{@code RestaurantModel} chỉ tồn tại trong method; API nhận {@link RestaurantSummaryDto}.</p>
 	 */
 	public CursorPageDto<RestaurantSummaryDto> findFeed(String afterId, Integer limit) {
+		// (1) pageSize = số bản ghi MỘT TRANG trả về cho client.
+		//     - Client không truyền limit  -> dùng mặc định (app.restaurants.feed-size).
+		//     - Chặn trên 50 để 1 request không kéo quá nhiều dữ liệu (bảo vệ server).
 		int pageSize = (limit == null || limit < 1) ? defaultFeedSize : Math.min(limit, 50);
 
+		// (2) Con trỏ (cursor): nếu có afterId -> chỉ lấy bản ghi có _id > afterId
+		//     (tức là các bản ghi NẰM SAU bản ghi cuối của trang trước).
 		Query query = new Query();
 		if (afterId != null && !afterId.isBlank()) {
 			if (!ObjectId.isValid(afterId)) {
@@ -83,12 +88,21 @@ public class RestaurantQueryService {
 			}
 			query.addCriteria(Criteria.where("_id").gt(new ObjectId(afterId)));
 		}
-		query.with(Sort.by(Sort.Direction.ASC, "_id")).limit(pageSize + 1);
 
+		// (3) Sort theo _id để thứ tự ỔN ĐỊNH giữa các lần gọi (bắt buộc với cursor).
+		//     MẸO "+1": lấy dư 1 bản ghi (pageSize + 1) để biết CÒN trang sau hay không
+		//     mà KHÔNG phải chạy thêm câu count tổng số document (count tốn thời gian khi data lớn).
+		query.with(Sort.by(Sort.Direction.ASC, "_id")).limit(pageSize + 1);
 		List<RestaurantModel> fetched = mongoTemplate.find(query, RestaurantModel.class, "restaurants");
+
+		// (4) hasMore: nếu lấy được nhiều hơn pageSize (tức chạm tới bản ghi "dư" thứ pageSize+1)
+		//     => vẫn còn dữ liệu phía sau => client có thể "Xem thêm".
 		boolean hasMore = fetched.size() > pageSize;
+
+		// (5) Cắt bỏ bản ghi "dư" — chỉ giữ đúng pageSize bản ghi để trả về.
 		List<RestaurantModel> page = hasMore ? fetched.subList(0, pageSize) : fetched;
 
+		// (6) lastSeenId = _id bản ghi CUỐI trang này -> client gửi lại làm afterId cho lần sau.
 		List<RestaurantSummaryDto> items = page.stream().map(RestaurantSummaryDto::fromEntity).toList();
 		String lastSeenId = page.isEmpty() ? null : page.get(page.size() - 1).getId();
 		return new CursorPageDto<>(items, lastSeenId, hasMore);

@@ -690,7 +690,7 @@ generic thay vì `FeedPageDto` riêng chứa `List<RestaurantModel>`:
 
 ```java
 public CursorPageDto<RestaurantSummaryDto> findFeed(String afterId, Integer limit) {
-    // ... Query MongoTemplate, lấy limit + 1 để biết hasMore ...
+    // ... Query MongoTemplate, lấy pageSize + 1 để biết hasMore ...
     List<RestaurantSummaryDto> items = page.stream()
             .map(RestaurantSummaryDto::fromEntity).toList();
     String lastSeenId = page.isEmpty() ? null : page.get(page.size() - 1).getId();
@@ -698,7 +698,19 @@ public CursorPageDto<RestaurantSummaryDto> findFeed(String afterId, Integer limi
 }
 ```
 
-> **Xem code:** [`RestaurantQueryService#findFeed`](../../demo-bai6-query-optimization/java-springboot-bai6/src/main/java/vn/demo/service/RestaurantQueryService.java) ·
+**Hai điểm hay gây khó hiểu cho người mới — `pageSize + 1` và `hasMore`:**
+
+| Khái niệm | Giải thích dễ hiểu |
+|-----------|--------------------|
+| `pageSize` | Số bản ghi muốn hiển thị **một trang** (vd 20). Client gửi `limit`, ta chặn trên (vd tối đa 50) để một request không kéo quá nhiều dữ liệu. |
+| **Mẹo `.limit(pageSize + 1)`** | Cố tình lấy **dư 1 bản ghi**. Nếu DB trả về **đủ `pageSize + 1`** nghĩa là **vẫn còn** dữ liệu phía sau → biết được **mà không cần** chạy thêm câu `count` tổng (vốn chậm khi dữ liệu lớn). |
+| **`hasMore`** | `= (số bản ghi lấy được > pageSize)`. `true` → client hiện nút **“Xem thêm”**; `false` → đã hết dữ liệu. Sau đó **cắt bỏ** bản ghi dư, chỉ trả đúng `pageSize`. |
+
+> **Ví dụ:** `pageSize = 20` → query `.limit(21)`.
+> - Trả về **21** bản ghi → `hasMore = true`, cắt còn **20** để hiển thị.
+> - Trả về **≤ 20** bản ghi → `hasMore = false` (trang cuối).
+
+> **Xem code (có chú thích từng bước):** [`RestaurantQueryService#findFeed`](../../demo-bai6-query-optimization/java-springboot-bai6/src/main/java/vn/demo/service/RestaurantQueryService.java) ·
 > [`dto/CursorPageDto.java`](../../demo-bai6-query-optimization/java-springboot-bai6/src/main/java/vn/demo/dto/CursorPageDto.java) ·
 > [`RestaurantQueryController#feed`](../../demo-bai6-query-optimization/java-springboot-bai6/src/main/java/vn/demo/controller/api/RestaurantQueryController.java)
 
@@ -757,21 +769,37 @@ GET /api/restaurants/feed?limit=20&afterId=665f1a2b3c4d5e6f7a8b9c0d
 
 ## 8. Tránh N+1 khi đọc dữ liệu
 
-**N+1** xảy ra khi: 1 query lấy danh sách, rồi **vòng lặp** gọi thêm 1 query cho **từng** phần tử.
+### 8.1. Vấn đề N+1
+
+**N+1** xảy ra khi: 1 query lấy danh sách (cha), rồi **vòng lặp** gọi thêm 1 query cho **từng** phần tử để lấy dữ liệu con.
 
 ```java
-// ❌ N+1 — 1 query restaurants + N query items
-List<RestaurantModel> restaurants = restaurantRepository.findAll();
+// ❌ N+1 — 1 query restaurants + N query items (mỗi nhà hàng 1 lần gọi DB)
+List<RestaurantModel> restaurants = restaurantRepository.findAll();   // 1 query
 for (RestaurantModel r : restaurants) {
-    List<ItemModel> items = itemRepository.findByRestaurantId(r.getRestaurantId());
+    List<ItemModel> items = itemRepository.findByRestaurantId(r.getRestaurantId()); // + N query
 }
-
-// ✅ 1 query — lấy items của nhiều nhà hàng cùng lúc
-List<String> ids = restaurants.stream().map(RestaurantModel::getRestaurantId).toList();
-List<ItemModel> items = itemRepository.findByRestaurantIdIn(ids);
 ```
 
-Repository cần **tự thêm** derived method (demo Bài 5 chưa có sẵn):
+Có **10 nhà hàng** → **11 lần** gọi DB; có **1000 nhà hàng** → **1001 lần**. Càng nhiều dữ liệu càng chậm.
+
+**Có 2 cách sửa** — cả hai đều gộp việc lấy dữ liệu con lại, khác nhau ở **chỗ ghép dữ liệu**:
+
+### 8.2. Cách 1 — Gộp ở tầng ứng dụng: `findByRestaurantIdIn` (`$in`)
+
+Lấy **tất cả** id cha một lượt, dùng **một** query `$in` lấy hết con, rồi **ghép trong Java** bằng `Map`.
+
+```java
+// ✅ 2 query tổng cộng, ghép bằng Map ở tầng Java
+List<RestaurantModel> restaurants = restaurantRepository.findAll();          // query 1
+List<String> ids = restaurants.stream().map(RestaurantModel::getRestaurantId).toList();
+List<ItemModel> items = itemRepository.findByRestaurantIdIn(ids);            // query 2 ($in)
+
+Map<String, List<ItemModel>> byRestaurant = items.stream()
+        .collect(Collectors.groupingBy(ItemModel::getRestaurantId));         // ghép trong bộ nhớ
+```
+
+Repository cần **tự thêm** derived method:
 
 ```java
 import java.util.Collection;
@@ -779,7 +807,50 @@ import java.util.Collection;
 List<ItemModel> findByRestaurantIdIn(Collection<String> restaurantIds);
 ```
 
-> Với quan hệ phức tạp hơn, Bài 5 đã dùng **`$lookup`** trong aggregation — vẫn cần **index** trên `restaurant_id` (§2).
+> Xem demo: [`RestaurantQueryService#loadItemsOptimized`](../../demo-bai6-query-optimization/java-springboot-bai6/src/main/java/vn/demo/service/RestaurantQueryService.java)
+
+### 8.3. Cách 2 — Gộp ngay trong DB: `$lookup` (đã học ở Bài 5)
+
+MongoDB tự **join** hai collection và trả về document đã ghép — ứng dụng chỉ nhận kết quả.
+
+```javascript
+db.restaurants.aggregate([
+  { $lookup: {
+      from: "items",
+      localField: "restaurant_id",
+      foreignField: "restaurant_id",
+      as: "items"
+  }}
+]);
+```
+
+> Cần **index** trên `restaurant_id` ở collection con (§2), nếu không `$lookup` sẽ quét toàn bộ.
+
+### 8.4. Chọn cách nào cho tối ưu?
+
+| Tiêu chí | Cách 1 — `findByRestaurantIdIn` (ghép ở Java) | Cách 2 — `$lookup` (ghép ở DB) |
+|----------|----------------------------------------------|--------------------------------|
+| Số lần gọi DB | 2 query | 1 query |
+| Nơi xử lý ghép | JVM (ứng dụng) — tốn RAM giữ 2 danh sách | MongoDB server |
+| Độ dễ hiểu (người mới) | Cao — thuần Java, dễ debug | Cần biết cú pháp aggregation pipeline |
+| Tái sử dụng | Dùng lại entity/DTO & repository sẵn có | Thường phải map kết quả sang DTO riêng |
+| Biến đổi dữ liệu (lọc/nhóm/tính toán) khi join | Làm thủ công trong Java | Làm ngay trong pipeline (`$match`, `$group`, `$project`) |
+| Khi danh sách id **rất lớn** | `$in` với quá nhiều id → query cồng kềnh, nên chia batch | Ổn hơn nếu có index + lọc (`$match`) trước |
+
+**Gợi ý chọn:**
+
+- **Dùng Cách 1 (`$in`)** khi:
+  - Đã có **sẵn danh sách cha trong bộ nhớ** (vd sau khi phân trang) và chỉ cần “đính kèm” con.
+  - Logic ghép **đơn giản**, dữ liệu hai phía **vừa phải**.
+  - Muốn **thuần Java**, dễ đọc/dễ test, tái dùng repository + DTO có sẵn.
+
+- **Dùng Cách 2 (`$lookup`)** khi:
+  - Muốn **giảm round-trip xuống 1 lần** gọi DB.
+  - Cần **lọc/nhóm/tính toán** ngay lúc join (đẩy việc nặng cho DB), hoặc trả thẳng **cấu trúc lồng** cho client.
+  - Đã **lọc/`limit` bớt** dữ liệu cha trước (kết hợp `$match` sớm — §9.1).
+
+> **Điểm chung:** cả hai đều thay thế vòng lặp `findById` (N+1) và đều cần **index** trên khóa liên kết `restaurant_id`.
+> Với người mới, **ưu tiên Cách 1** vì dễ hình dung; chuyển sang `$lookup` khi cần join phức tạp hoặc tối ưu round-trip.
 
 ---
 
