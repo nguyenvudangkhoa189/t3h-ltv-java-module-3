@@ -12,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
  * Tạo text index cho {@code $text} search (syllabus §4.3).
  *
  * <p>Mỗi collection chỉ có một text index — gộp {@code name} + {@code cuisine}.</p>
- * <p>{@code ensureIndex} an toàn khi index đã tồn tại (không tạo trùng).</p>
+ * <p>{@code createIndex} an toàn khi index đã tồn tại (MongoDB không tạo trùng nếu cùng đặc tả).</p>
  */
 @Slf4j
 @Configuration
@@ -25,7 +25,7 @@ public class IndexConfig {
 					.onField("name")
 					.onField("cuisine")
 					.build();
-			mongoTemplate.indexOps("restaurants").ensureIndex(textIndex);
+			mongoTemplate.indexOps("restaurants").createIndex(textIndex);
 			log.info("Đã đảm bảo text index trên restaurants (name, cuisine)");
 		};
 	}
