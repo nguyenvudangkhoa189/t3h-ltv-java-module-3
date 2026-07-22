@@ -3,6 +3,11 @@
 <!--
   FRAGMENTS dùng chung (Bài 7).
   Cách dùng: th:replace="~{fragments/layout :: head('Tiêu đề')}"
+
+  Quy ước static (giống Bài 4/5/8):
+  - CSS/JS/ảnh trong static/ → luôn dùng th:href="@{/...}" hoặc th:src="@{/...}"
+  - @{/...} = link URL của Spring (tự thêm context-path nếu deploy dưới /app)
+  - Không viết href="/css/..." cứng — dễ sai khi đổi context-path
 -->
 
 <!-- CSS + meta + title -->
@@ -13,16 +18,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title th:text="${pageTitle}">Anime | Template</title>
+    <!-- CDN ngoài: giữ href thường (không phải file trong static/) -->
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/bootstrap.min.css" type="text/css">
-    <link rel="stylesheet" href="/css/font-awesome.min.css" type="text/css">
-    <link rel="stylesheet" href="/css/elegant-icons.css" type="text/css">
-    <link rel="stylesheet" href="/css/plyr.css" type="text/css">
-    <link rel="stylesheet" href="/css/nice-select.css" type="text/css">
-    <link rel="stylesheet" href="/css/owl.carousel.min.css" type="text/css">
-    <link rel="stylesheet" href="/css/slicknav.min.css" type="text/css">
-    <link rel="stylesheet" href="/css/style.css" type="text/css">
+    <!-- File trong src/main/resources/static/css/ → th:href="@{/css/...}" -->
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/font-awesome.min.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/elegant-icons.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/plyr.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/nice-select.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/owl.carousel.min.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/slicknav.min.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/style.css}" type="text/css">
 </head>
 
 <body>
@@ -40,7 +47,7 @@
         <div class="row">
             <div class="col-lg-2">
                 <div class="header__logo">
-                    <a th:href="@{/movies}"><img src="/img/logo.png" alt=""></a>
+                    <a th:href="@{/movies}"><img th:src="@{/img/logo.png}" alt=""></a>
                 </div>
             </div>
             <div class="col-lg-8">
@@ -83,7 +90,7 @@
         <div class="row">
             <div class="col-lg-3">
                 <div class="footer__logo">
-                    <a th:href="@{/movies}"><img src="/img/logo.png" alt=""></a>
+                    <a th:href="@{/movies}"><img th:src="@{/img/logo.png}" alt=""></a>
                 </div>
             </div>
             <div class="col-lg-6">
@@ -113,16 +120,16 @@
     </div>
 </div>
 
-<!-- JS plugins -->
+<!-- JS plugins — file trong static/js/ → th:src="@{/js/...}" -->
 <th:block th:fragment="scripts">
-    <script src="/js/jquery-3.3.1.min.js"></script>
-    <script src="/js/bootstrap.min.js"></script>
-    <script src="/js/player.js"></script>
-    <script src="/js/jquery.nice-select.min.js"></script>
-    <script src="/js/mixitup.min.js"></script>
-    <script src="/js/jquery.slicknav.js"></script>
-    <script src="/js/owl.carousel.min.js"></script>
-    <script src="/js/main.js"></script>
+    <script th:src="@{/js/jquery-3.3.1.min.js}"></script>
+    <script th:src="@{/js/bootstrap.min.js}"></script>
+    <script th:src="@{/js/player.js}"></script>
+    <script th:src="@{/js/jquery.nice-select.min.js}"></script>
+    <script th:src="@{/js/mixitup.min.js}"></script>
+    <script th:src="@{/js/jquery.slicknav.js}"></script>
+    <script th:src="@{/js/owl.carousel.min.js}"></script>
+    <script th:src="@{/js/main.js}"></script>
 </th:block>
 
 </body>

@@ -279,24 +279,68 @@ Từ theme Anime, copy vào `src/main/resources/static/`:
 
 - `css/`, `js/`, `img/`, `fonts/`, `videos/`
 
-Path trong HTML phải là **tuyệt đối từ root**: `/css/style.css`, `/img/logo.png` (không dùng `css/...` tương đối — sẽ vỡ khi đổi URL).
+Spring Boot phục vụ thư mục `static/` tại URL gốc. Ví dụ file:
 
-### Bước 4.2 — Vì sao cần fragment?
+```text
+src/main/resources/static/css/style.css  →  URL /css/style.css
+src/main/resources/static/js/main.js     →  URL /js/main.js
+src/main/resources/static/img/logo.png   →  URL /img/logo.png
+```
+
+### Bước 4.2 — Chuẩn link static: `th:href="@{/...}"` / `th:src="@{/...}"`
+
+> **Quy ước module (Bài 4 / 5 / 8):** mọi CSS, JS, ảnh **trong `static/`** phải dùng cú pháp link URL của Thymeleaf — **không** viết `href="/css/..."` cứng.
+
+```html
+<!-- ✅ ĐÚNG — chuẩn Spring + Thymeleaf (giống Bài 5: th:href="@{/css/restaurants.css}") -->
+<link rel="stylesheet" th:href="@{/css/style.css}" type="text/css"/>
+<script th:src="@{/js/main.js}"></script>
+<img th:src="@{/img/logo.png}" alt=""/>
+
+<!-- ❌ SAI — path cứng, không tự gắn context-path khi deploy dưới /myapp -->
+<link rel="stylesheet" href="/css/style.css"/>
+```
+
+**Vì sao phải dùng `@{/...}`?**
+
+| Lý do | Giải thích |
+|-------|------------|
+| **Context-path** | Nếu app chạy tại `http://host/myapp`, `@{/css/style.css}` → `/myapp/css/style.css`. Viết `href="/css/..."` sẽ trỏ nhầm ra ngoài app. |
+| **Đồng bộ module** | Bài 4/5/8 đều dùng `th:href="@{/css/...}"` — học một chuẩn, dùng mọi bài. |
+| **CDN bên ngoài** | Google Fonts / Chart.js CDN **không** nằm trong `static/` → giữ `href="https://..."` bình thường. |
+
+Path **tương đối** kiểu `css/style.css` (không có `/` đầu) càng nguy hiểm hơn: khi URL là `/movies/detail/abc`, trình duyệt tìm `/movies/detail/css/style.css` → CSS không load.
+
+### Bước 4.3 — Vì sao cần fragment?
 
 Header/footer/card lặp trên nhiều trang. Tách ra `templates/fragments/` rồi gắn bằng `th:replace` → sửa một chỗ, mọi trang cập nhật.
 
-### Bước 4.3 — `fragments/layout.html` (làm trước)
+### Bước 4.4 — `fragments/layout.html` (làm trước)
 
 ```html
 <head th:fragment="head(pageTitle)">
     <meta charset="UTF-8">
     <title th:text="${pageTitle}">Anime</title>
-    <link rel="stylesheet" href="/css/bootstrap.min.css" type="text/css">
-    <link rel="stylesheet" href="/css/style.css" type="text/css">
-    <!-- ... các CSS khác của theme ... -->
+
+    <!-- CDN ngoài: giữ href thường (không phải file trong static/) -->
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <!-- File trong src/main/resources/static/css/ → th:href="@{/css/...}" -->
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/font-awesome.min.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/elegant-icons.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/plyr.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/nice-select.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/owl.carousel.min.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/slicknav.min.css}" type="text/css">
+    <link rel="stylesheet" th:href="@{/css/style.css}" type="text/css">
 </head>
 
 <header th:fragment="header(active)" class="header">
+    <!-- Logo: ảnh static → th:src="@{/img/...}" ; link nội bộ → th:href="@{/movies}" -->
+    <a th:href="@{/movies}"><img th:src="@{/img/logo.png}" alt=""></a>
+
     <!-- active = 'home' | 'categories' | 'chart' để tô menu -->
     <li th:classappend="${active == 'home'} ? 'active'">
         <a th:href="@{/movies}">Homepage</a>
@@ -310,15 +354,23 @@ Header/footer/card lặp trên nhiều trang. Tách ra `templates/fragments/` r�
 </header>
 
 <footer th:fragment="footer" class="footer">...</footer>
+
+<!-- File trong static/js/ → th:src="@{/js/...}" -->
 <th:block th:fragment="scripts">
-    <script src="/js/jquery-3.3.1.min.js"></script>
-    <script src="/js/main.js"></script>
+    <script th:src="@{/js/jquery-3.3.1.min.js}"></script>
+    <script th:src="@{/js/bootstrap.min.js}"></script>
+    <script th:src="@{/js/player.js}"></script>
+    <script th:src="@{/js/jquery.nice-select.min.js}"></script>
+    <script th:src="@{/js/mixitup.min.js}"></script>
+    <script th:src="@{/js/jquery.slicknav.js}"></script>
+    <script th:src="@{/js/owl.carousel.min.js}"></script>
+    <script th:src="@{/js/main.js}"></script>
 </th:block>
 ```
 
 > **Xem code đầy đủ:** [`fragments/layout.html`](../../demo-bai7-mongodb-thymeleaf/java-springboot-bai7/src/main/resources/templates/fragments/layout.html)
 
-### Bước 4.4 — Dùng fragment trong trang
+### Bước 4.5 — Dùng fragment trong trang
 
 ```html
 <!DOCTYPE html>
@@ -336,22 +388,33 @@ Header/footer/card lặp trên nhiều trang. Tách ra `templates/fragments/` r�
 </html>
 ```
 
-**Giải thích cú pháp:** `~{đường_dẫn_file :: tên_fragment(tham_số)}`  
+**Giải thích cú pháp fragment:** `~{đường_dẫn_file :: tên_fragment(tham_số)}`  
 - `~{...}` = biểu thức fragment  
 - `th:replace` = thay thế **cả thẻ hiện tại** bằng nội dung fragment  
 
-### Bước 4.5 — `fragments/movie.html` — card + sidebar
+### Bước 4.6 — `fragments/movie.html` — card + sidebar
 
 ```html
 <!-- Card 1 phim: click ảnh HOẶC tên → detail -->
 <div th:fragment="productCard(r)" class="col-lg-4 col-md-6 col-sm-6">
     <div class="product__item">
+        <!--
+          posterUrl do DTO build sẵn dạng "/img/trending/trend-1.jpg"
+          → dùng th:attr="data-setbg=${r.posterUrl}" (giá trị đã là path tuyệt đối từ root)
+          Khác với CSS/JS cố định: file biết trước → th:href="@{/css/...}"
+        -->
         <a class="product__item__pic set-bg"
            th:href="@{/movies/detail/{id}(id=${r.id})}"
            th:attr="data-setbg=${r.posterUrl}">
             <div class="ep" th:text="${r.releaseYear}">2020</div>
+            <div class="comment"><i class="fa fa-comments"></i> <span th:text="${r.rating}">PG</span></div>
+            <div class="view"><i class="fa fa-eye"></i> <span th:text="${r.duration}">90 min</span></div>
         </a>
         <div class="product__item__text">
+            <ul>
+                <li th:text="${r.type}">Movie</li>
+                <li th:text="${r.genreLabel}">Drama</li>
+            </ul>
             <h5>
                 <a th:href="@{/movies/detail/{id}(id=${r.id})}" th:text="${r.title}">Title</a>
             </h5>
@@ -361,10 +424,17 @@ Header/footer/card lặp trên nhiều trang. Tách ra `templates/fragments/` r�
 
 <!-- Sidebar: cần model attribute topViews + sidebarComments -->
 <div th:fragment="productSidebar" class="product__sidebar">
-    <!-- Top Views: th:each="t : ${topViews}" -->
-    <!-- New Comment: th:each="s : ${sidebarComments}" -->
+    <!-- Top Views: th:each="t : ${topViews}" + th:attr="data-setbg=${t.posterUrl}" -->
+    <!-- New Comment: th:each="s : ${sidebarComments}" + th:src="${s.posterUrl}" -->
 </div>
 ```
+
+**Phân biệt path cố định vs path từ DTO (khớp demo):**
+
+| Loại | Ví dụ | Cú pháp trong demo |
+|------|--------|-------------------|
+| File static biết trước | `/css/style.css`, `/js/main.js`, `/img/logo.png`, `/videos/1.mp4` | `th:href="@{/css/...}"` / `th:src="@{/js/...}"` |
+| Path động từ DTO | `r.posterUrl` = `"/img/trending/trend-1.jpg"` | `th:attr="data-setbg=${r.posterUrl}"` hoặc `th:src="${s.posterUrl}"` |
 
 **Cách gọi card trong vòng lặp:**
 
@@ -721,7 +791,14 @@ Map từ `MovieModel`: title, type, director, cast, country, rating, duration, l
 | Movie | 1 | CSV không có episode |
 | TV Show / duration có "season" | 12 | Đủ để demo UI watching |
 
-Video dùng file mẫu theme: `/videos/1.mp4`, poster `/videos/anime-watch.jpg`.
+Video dùng file mẫu theme — path cố định trong `static/videos/` → dùng `@{/...}`:
+
+```html
+<!-- Video/poster nằm trong static/videos/ → dùng @{/...} -->
+<video id="player" playsinline controls th:attr="data-poster=@{/videos/anime-watch.jpg}">
+    <source th:src="@{/videos/1.mp4}" type="video/mp4"/>
+</video>
+```
 
 ### Bước 7.5 — Fragment comment
 
@@ -810,7 +887,7 @@ F5 chỉ lặp GET → không tạo comment trùng
 - Nút **Watch Now** trên detail trỏ tới đây  
 - Query `ep` (mặc định 1): Controller kẹp trong khoảng `1 … episodes.size()` rồi đưa `currentEp` ra view  
 - Episodes: `th:each` + `th:classappend="${iter.count == currentEp} ? ' active'"`  
-- Video: `<source src="/videos/1.mp4">` (file mẫu theme)  
+- Video: `<source th:src="@{/videos/1.mp4}">` (file trong `static/videos/`)  
 - POST comment tương tự detail, redirect về `/movies/watching/{id}`  
 
 ```html
@@ -897,7 +974,8 @@ public String showChart(Model model) {
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |-------------|-------------|------------|
-| CSS/JS vỡ layout | Path `css/...` tương đối | Đổi `/css/...` |
+| CSS/JS vỡ layout | Path `css/...` tương đối hoặc `href="/css/..."` cứng | Dùng `th:href="@{/css/...}"` / `th:src="@{/js/...}"` (§4.2) |
+| CSS mất khi deploy dưới `/myapp` | Không dùng `@{...}` | `@{/css/style.css}` → `/myapp/css/style.css` |
 | `th:each` không hiện | Sai tên `model.addAttribute` | Khớp `${trending}` ↔ `"trending"` |
 | Field luôn `null` | `@Field` ≠ header CSV | `findOne()` trong mongosh, sửa `@Field` |
 | F5 tạo comment trùng | POST trả view, thiếu PRG | `return "redirect:/movies/detail/" + id` |
@@ -916,7 +994,7 @@ public String showChart(Model model) {
 
 | Khái niệm | Ý chính trong demo |
 |-----------|-------------------|
-| Merge template | `static/` + path `/css/...`; trang dùng `th:replace` fragment |
+| Merge template | `static/` + `th:href="@{/css/...}"` / `th:src="@{/js/...}"` + fragment `th:replace` |
 | Fragment | `layout` / `movie` / `comments` — DRY header, card, form |
 | `mongoimport` | `--headerline --drop`; collection `mymoviedb` |
 | `@Field` | Map snake_case CSV ↔ camelCase Java |
@@ -936,13 +1014,13 @@ Các mục sau **đã có trong demo** và được mô tả trong bài:
 |---------------|----------------|
 | `MovieModel` / `CommentModel` (suffix Model) | §5.1, §7.1 |
 | `mongoimport` + `import-movies.sh` (không DataSeeder) | §3 |
-| Fragments `layout` / `movie` / `comments` | §4, §5.6, §7.5 |
+| Fragments `layout` / `movie` / `comments` + `th:href="@{/css/...}"` | §4 |
 | Trang chủ `buildHomePage` (Hero + 4 section + Top Views) | §5.4–5.6 |
 | Sidebar New Comment từ DB (`findRecentSidebar`) | §5.5, §7.3 |
 | Categories + `PagedListView` + `a.current-page` | §6 |
-| Click ảnh + tên → detail | §4.5 |
+| Click ảnh + tên → detail | §4.6 |
 | Detail + Watching + comment guest + PRG | §7 |
-| `MovieDetailDto.episodes` + `/videos/1.mp4` | §7.4, §7.7 |
+| `MovieDetailDto.episodes` + `th:src="@{/videos/1.mp4}"` | §7.4, §7.7 |
 | `movies/not-found.html` khi sai id | §7.6 |
 | Chart aggregation `country` + Chart.js | §8 |
 | `app.movies.chart-min-count` / `chart-limit` | §2.1, §8 |
@@ -979,6 +1057,7 @@ Các mục sau **đã có trong demo** và được mô tả trong bài:
 
 ### Checklist nộp bài (khớp demo)
 
+- [ ] CSS/JS dùng `th:href="@{/css/...}"` / `th:src="@{/js/...}"` (không `href="/css/..."` cứng)  
 - [ ] Import CSV; `findOne()` khớp `@Field`  
 - [ ] Class model có suffix `Model`  
 - [ ] Có `fragments/layout.html`, `movie.html`, `comments.html`  

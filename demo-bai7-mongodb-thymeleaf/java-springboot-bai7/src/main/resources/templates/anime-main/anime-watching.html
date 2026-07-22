@@ -26,8 +26,9 @@
         <div class="row">
             <div class="col-lg-12">
                 <div class="anime__video__player">
-                    <video id="player" playsinline controls data-poster="/videos/anime-watch.jpg">
-                        <source src="/videos/1.mp4" type="video/mp4"/>
+                    <!-- Video/poster nằm trong static/videos/ → dùng @{/...} -->
+                    <video id="player" playsinline controls th:attr="data-poster=@{/videos/anime-watch.jpg}">
+                        <source th:src="@{/videos/1.mp4}" type="video/mp4"/>
                         <track kind="captions" label="English captions" src="#" srclang="en" default/>
                     </video>
                 </div>

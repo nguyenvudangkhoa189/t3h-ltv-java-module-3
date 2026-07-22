@@ -66,7 +66,7 @@ cd demo-bai7-mongodb-thymeleaf/java-springboot-bai7
 
 Static assets (`css`, `js`, `img`, `fonts`) copy từ [`themewagon/anime`](https://github.com/themewagon/anime).
 
-HTML dùng chung qua Thymeleaf fragment:
+HTML dùng chung qua Thymeleaf fragment. Static resources **bắt buộc** `th:href="@{/css/...}"` / `th:src="@{/js/...}"` (giống Bài 4/5).
 
 | Fragment | Nội dung |
 |----------|----------|
