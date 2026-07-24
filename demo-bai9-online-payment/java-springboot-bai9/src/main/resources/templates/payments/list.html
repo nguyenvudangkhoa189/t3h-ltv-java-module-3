@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Lịch sử thanh toán')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<main class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Lịch sử thanh toán</h1>
+            <p class="text-muted mb-0">
+                Đọc từ MongoDB <code>db_java_t3h_module3</code> · collection <code>payments</code>.
+            </p>
+        </div>
+        <a th:href="@{/movies}" class="btn btn-outline-primary">Chọn phim khác</a>
+    </div>
+
+    <div class="alert alert-secondary" th:if="${#lists.isEmpty(payments)}">
+        Chưa có giao dịch nào. Hãy thanh toán thử ở trang chi tiết phim.
+    </div>
+
+    <div class="table-responsive" th:if="${!#lists.isEmpty(payments)}">
+        <table class="table table-striped align-middle">
+            <thead>
+            <tr>
+                <th>PayPal Order</th>
+                <th>Capture ID</th>
+                <th>Số tiền</th>
+                <th>Trạng thái</th>
+                <th>Cập nhật</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="p : ${payments}">
+                <td><code th:text="${p.paypalOrderId}">ORDER</code></td>
+                <td><code th:text="${p.captureId ?: '-'}">CAPTURE</code></td>
+                <td th:text="${p.amount + ' ' + p.currency}">$9.99 USD</td>
+                <td>
+                    <span class="badge"
+                          th:classappend="${p.status == 'COMPLETED'} ? ' text-bg-success' : (${p.status == 'REFUNDED'} ? ' text-bg-warning' : ' text-bg-secondary')"
+                          th:text="${p.status}">CREATED</span>
+                </td>
+                <td th:text="${p.updatedAt}">time</td>
+                <td class="text-end">
+                    <button th:if="${p.status == 'COMPLETED'}"
+                            class="btn btn-sm btn-outline-warning"
+                            th:attr="data-payment-id=${p.id}"
+                            onclick="refundPayment(this)">
+                        Refund
+                    </button>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    async function refundPayment(button) {
+        if (!confirm('Bạn muốn hoàn tiền giao dịch này?')) {
+            return;
+        }
+        await fetch(`/api/payments/${button.dataset.paymentId}/refund`, { method: 'POST' });
+        window.location.reload();
+    }
+</script>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

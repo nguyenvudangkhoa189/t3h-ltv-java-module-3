@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${movie.title})}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<main class="container py-4">
+    <a th:href="@{/movies}" class="btn btn-link px-0">&larr; Quay lại danh sách</a>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <span class="badge text-bg-primary mb-2" th:text="${movie.genre}">Genre</span>
+                    <h1 class="h3" th:text="${movie.title}">Movie title</h1>
+                    <p class="text-muted" th:text="${'Năm phát hành: ' + movie.releaseYear}">Năm phát hành</p>
+                    <p th:text="${movie.description}">Description</p>
+                    <p class="fs-5">
+                        Giá thuê:
+                        <strong th:text="${'$' + movie.rentalPrice}">$9.99</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card border-primary shadow-sm">
+                <div class="card-header bg-primary text-white">Thanh toán PayPal (Sandbox thật)</div>
+                <div class="card-body">
+                    <ol class="small text-muted mb-3">
+                        <li>FE chỉ gửi <code>movieId</code>.</li>
+                        <li>Backend quyết số tiền + gọi PayPal tạo order.</li>
+                        <li>Bạn duyệt trên popup PayPal.</li>
+                        <li>Backend capture + lưu Mongo collection <code>payments</code>.</li>
+                    </ol>
+
+                    <!-- Chưa cấu hình Client ID/Secret -->
+                    <div th:if="${!paypalConfigured}" class="alert alert-danger">
+                        <strong>Chưa thấy nút PayPal</strong> vì chưa dán Client ID / Secret thật.
+                        <hr class="my-2">
+                        Mở file
+                        <code>src/main/resources/application.properties</code>
+                        và thay:
+                        <pre class="mb-0 mt-2 small">paypal.client-id=...Client ID Sandbox...
+paypal.client-secret=...Secret Sandbox...</pre>
+                        Lấy tại
+                        <a href="https://developer.paypal.com/dashboard/applications/sandbox" target="_blank" rel="noopener">
+                            PayPal Developer Dashboard → Sandbox Apps
+                        </a>
+                        rồi <strong>restart</strong> app.
+                    </div>
+
+                    <!-- Đã cấu hình: hiện vùng nút PayPal -->
+                    <div th:if="${paypalConfigured}">
+                        <div class="alert alert-info small">
+                            Đăng nhập bằng <strong>buyer sandbox</strong> khi popup PayPal hiện ra.
+                            Sau khi thành công, mở trang
+                            <a th:href="@{/payments}">Lịch sử thanh toán</a>
+                            hoặc kiểm tra Mongo:
+                            <code>use db_java_t3h_module3</code> → <code>db.payments.find()</code>
+                        </div>
+                        <div id="paypal-button-container" class="min-h-paypal">
+                            <p class="text-muted small mb-0" id="paypal-loading">Đang tải nút PayPal…</p>
+                        </div>
+                        <div id="pay-result" class="alert mt-3 d-none" role="alert"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Chỉ load SDK khi đã có Client ID thật. Dùng &amp; để HTML không cắt URL. -->
+<script th:if="${paypalConfigured}"
+        th:src="|https://www.paypal.com/sdk/js?client-id=${paypalClientId}&amp;currency=${paypalCurrency}|"></script>
+<script th:if="${paypalConfigured}" th:inline="javascript">
+    const movieId = /*[[${movie.id}]]*/ '';
+
+    function showResult(message, type = 'success') {
+        const box = document.getElementById('pay-result');
+        box.className = 'alert alert-' + type + ' mt-3';
+        box.innerText = message;
+        box.classList.remove('d-none');
+    }
+
+    async function createOrderOnServer() {
+        const response = await fetch('/api/payments/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ movieId: movieId })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || ('Tạo order thất bại: HTTP ' + response.status));
+        }
+        if (!data.id) {
+            throw new Error('Backend không trả về order id');
+        }
+        return data.id;
+    }
+
+    async function captureOrderOnServer(orderId) {
+        const response = await fetch('/api/payments/orders/' + orderId + '/capture', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || ('Capture thất bại: HTTP ' + response.status));
+        }
+        return data;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const loading = document.getElementById('paypal-loading');
+        if (typeof paypal === 'undefined' || !paypal.Buttons) {
+            if (loading) {
+                loading.className = 'alert alert-danger small mb-0';
+                loading.innerText = 'Không load được PayPal SDK. Kiểm tra Client ID Sandbox và kết nối mạng.';
+            }
+            return;
+        }
+        if (loading) {
+            loading.remove();
+        }
+
+        paypal.Buttons({
+            style: {
+                layout: 'vertical',
+                color: 'gold',
+                shape: 'rect',
+                label: 'paypal'
+            },
+            // FE chỉ tạo order qua BACKEND — không tự tính tiền
+            createOrder: async function () {
+                try {
+                    return await createOrderOnServer();
+                } catch (err) {
+                    console.error(err);
+                    showResult(err.message, 'danger');
+                    throw err;
+                }
+            },
+            onApprove: async function (data) {
+                try {
+                    showResult('Đang capture trên backend…', 'secondary');
+                    const payment = await captureOrderOnServer(data.orderID);
+                    showResult(
+                        'Thanh toán ' + payment.status + ' — captureId: ' + payment.captureId
+                        + '. Đã lưu Mongo collection payments.',
+                        'success'
+                    );
+                } catch (err) {
+                    console.error(err);
+                    showResult(err.message, 'danger');
+                }
+            },
+            onCancel: async function (data) {
+                if (data && data.orderID) {
+                    await fetch('/api/payments/orders/' + data.orderID + '/cancel', { method: 'POST' });
+                }
+                showResult('Bạn đã hủy thanh toán', 'warning');
+            },
+            onError: function (err) {
+                console.error(err);
+                showResult('PayPal lỗi: ' + (err.message || err), 'danger');
+            }
+        }).render('#paypal-button-container');
+    });
+</script>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

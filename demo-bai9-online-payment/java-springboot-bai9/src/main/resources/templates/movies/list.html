@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Danh sách phim')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<main class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Danh sách phim</h1>
+            <p class="text-muted mb-0">Chọn một phim để xem chi tiết và thử flow thanh toán.</p>
+        </div>
+        <a th:href="@{/payments}" class="btn btn-outline-secondary">Lịch sử thanh toán</a>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6 col-lg-3" th:each="movie : ${movies}">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <span class="badge text-bg-primary align-self-start mb-2" th:text="${movie.genre}">Genre</span>
+                    <h2 class="h5" th:text="${movie.title}">Movie title</h2>
+                    <p class="text-muted mb-2" th:text="${movie.releaseYear}">2024</p>
+                    <p class="small flex-grow-1" th:text="${movie.description}">Description</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong th:text="${'$' + movie.rentalPrice}">$9.99</strong>
+                        <a class="btn btn-sm btn-primary" th:href="@{/movies/{id}(id=${movie.id})}">
+                            Xem chi tiết
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>
