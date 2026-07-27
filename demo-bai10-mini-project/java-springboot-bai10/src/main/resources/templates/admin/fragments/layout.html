@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title}">Admin</title>
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+    <style>
+        :root { --sidebar: #0f172a; --accent: #38bdf8; }
+        body { background: #f1f5f9; }
+        .admin-shell { display: flex; min-height: 100vh; }
+        .admin-sidebar {
+            width: 240px; background: var(--sidebar); color: #e2e8f0;
+            padding: 1.25rem 1rem; flex-shrink: 0;
+        }
+        .admin-sidebar a { color: #cbd5e1; text-decoration: none; display: block; padding: .5rem .75rem; border-radius: .4rem; }
+        .admin-sidebar a:hover, .admin-sidebar a.active { background: #1e293b; color: #fff; }
+        .admin-sidebar .brand { color: #fff; font-weight: 700; margin-bottom: 1.5rem; display: block; }
+        .admin-main { flex: 1; padding: 1.5rem; }
+        .stat-card { background: #fff; border-radius: .75rem; padding: 1rem 1.25rem; box-shadow: 0 1px 2px rgb(0 0 0 / 6%); height: 100%; }
+        .stat-card h2 { font-size: 1rem; margin-bottom: .75rem; }
+    </style>
+</head>
+<body>
+<aside th:fragment="sidebar(active)" class="admin-sidebar">
+    <a class="brand" th:href="@{/admin/dashboard}">LTV Admin</a>
+    <a th:href="@{/admin/dashboard}" th:classappend="${active == 'dashboard'} ? ' active'">Dashboard</a>
+    <a th:href="@{/admin/movies}" th:classappend="${active == 'movies'} ? ' active'">Movies</a>
+    <a th:href="@{/admin/movies/new}" th:classappend="${active == 'create'} ? ' active'">Thêm phim</a>
+    <hr class="border-secondary">
+    <a th:href="@{/movies}">Về trang public</a>
+    <form th:action="@{/logout}" method="post" class="mt-2 px-2">
+        <button class="btn btn-sm btn-outline-light w-100" type="submit">Logout</button>
+    </form>
+</aside>
+
+<div th:fragment="scripts">
+    <script th:src="@{/js/bootstrap.min.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</div>
+</body>
+</html>

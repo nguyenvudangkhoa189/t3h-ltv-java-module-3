@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zxx" xmlns:th="http://www.thymeleaf.org">
+<!-- Categories — danh sách phân trang + sidebar -->
+<head th:replace="~{fragments/layout :: head('Anime | Categories')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: preloader}"></div>
+<header th:replace="~{fragments/layout :: header('categories')}"></header>
+
+<div class="breadcrumb-option">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="breadcrumb__links">
+                    <a th:href="@{/movies}"><i class="fa fa-home"></i> Home</a>
+                    <span>Categories</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="product-page spad">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="product__page__content">
+                    <div class="product__page__title">
+                        <div class="row">
+                            <div class="col-lg-8 col-md-8 col-sm-6">
+                                <div class="section-title"><h4>Netflix Movies</h4></div>
+                            </div>
+                            <div class="col-lg-4 col-md-4 col-sm-6">
+                                <div class="product__page__filter">
+                                    <p>Order by:</p>
+                                    <select>
+                                        <option value="">A-Z</option>
+                                        <option value="">1-10</option>
+                                        <option value="">10-50</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <th:block th:each="r : ${list}">
+                            <div th:replace="~{fragments/movie :: productCard(${r})}"></div>
+                        </th:block>
+                    </div>
+                </div>
+                <!-- Phân trang -->
+                <div class="product__pagination" th:if="${totalPages > 0}">
+                    <a th:if="${currentPage > 0}" th:href="@{/movies/home(page=${currentPage - 1})}">&laquo;</a>
+                    <a th:each="pageNum : ${#numbers.sequence(startPage, endPage)}"
+                       th:href="@{/movies/home(page=${pageNum})}"
+                       th:classappend="${pageNum == currentPage} ? 'current-page'"
+                       th:text="${pageNum + 1}">1</a>
+                    <a th:if="${currentPage < totalPages - 1}"
+                       th:href="@{/movies/home(page=${currentPage + 1})}">
+                        <i class="fa fa-angle-double-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6 col-sm-8">
+                <div th:replace="~{fragments/movie :: productSidebar}"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: search}"></div>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

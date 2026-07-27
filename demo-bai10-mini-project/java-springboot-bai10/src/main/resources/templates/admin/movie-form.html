@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/layout :: head(${formMode == 'create'} ? 'Thêm phim' : 'Sửa phim')}"></head>
+<body>
+<div class="admin-shell">
+    <div th:replace="~{admin/fragments/layout :: sidebar(${formMode == 'create'} ? 'create' : 'movies')}"></div>
+    <main class="admin-main">
+        <h1 class="h3 mb-3" th:text="${formMode == 'create'} ? 'Thêm phim' : 'Sửa phim'">Form</h1>
+
+        <div class="stat-card">
+            <form th:object="${movieForm}" method="post"
+                  th:action="${formMode == 'create'} ? @{/admin/movies} : @{/admin/movies/{id}/edit(id=*{id})}">
+                <input type="hidden" th:field="*{id}">
+
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Title *</label>
+                        <input class="form-control" th:field="*{title}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{title}"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Type *</label>
+                        <select class="form-select" th:field="*{type}" th:errorclass="is-invalid">
+                            <option value="Movie">Movie</option>
+                            <option value="TV Show">TV Show</option>
+                        </select>
+                        <div class="invalid-feedback" th:errors="*{type}"></div>
+                    </div>
+                    <div class="col-md-6" th:if="${formMode == 'edit'}">
+                        <label class="form-label">Show ID (readonly)</label>
+                        <input class="form-control" th:field="*{showId}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Release year *</label>
+                        <input class="form-control" type="number" th:field="*{releaseYear}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{releaseYear}"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Director</label>
+                        <input class="form-control" th:field="*{director}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Country</label>
+                        <input class="form-control" th:field="*{country}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Date added (e.g. August 14, 2020)</label>
+                        <input class="form-control" th:field="*{dateAdded}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Rating (TV-MA…)</label>
+                        <input class="form-control" th:field="*{rating}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Duration</label>
+                        <input class="form-control" th:field="*{duration}" placeholder="93 min">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Cast</label>
+                        <input class="form-control" th:field="*{cast}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Listed in (genres)</label>
+                        <input class="form-control" th:field="*{listedIn}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="4" th:field="*{description}"></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-3 d-flex gap-2">
+                    <button class="btn btn-primary" type="submit"
+                            th:text="${formMode == 'create'} ? 'Thêm' : 'Lưu'">Save</button>
+                    <a class="btn btn-outline-secondary" th:href="@{/admin/movies}">Hủy</a>
+                </div>
+            </form>
+        </div>
+    </main>
+</div>
+<div th:replace="~{admin/fragments/layout :: scripts}"></div>
+</body>
+</html>

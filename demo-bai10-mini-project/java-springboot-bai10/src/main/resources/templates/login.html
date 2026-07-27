@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Login</title>
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+    <style>
+        body { background: #f0f2f5; min-height: 100vh; display: flex; align-items: center; }
+        .login-card { max-width: 420px; margin: auto; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card shadow-sm login-card">
+        <div class="card-body p-4">
+            <h1 class="h4 mb-3">Admin Login</h1>
+            <p class="text-muted small">Mini Project Bài 10 — chỉ tài khoản ADMIN</p>
+
+            <div th:if="${param.error}" class="alert alert-danger py-2">Sai username hoặc password.</div>
+            <div th:if="${param.logout}" class="alert alert-success py-2">Đã đăng xuất.</div>
+
+            <form th:action="@{/login}" method="post">
+                <div class="mb-3">
+                    <label class="form-label" for="username">Username</label>
+                    <input class="form-control" id="username" name="username" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="password">Password</label>
+                    <input class="form-control" id="password" name="password" type="password" required>
+                </div>
+                <button class="btn btn-primary w-100" type="submit">Đăng nhập</button>
+            </form>
+            <p class="mt-3 mb-0 small"><a th:href="@{/movies}">← Về trang public</a></p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

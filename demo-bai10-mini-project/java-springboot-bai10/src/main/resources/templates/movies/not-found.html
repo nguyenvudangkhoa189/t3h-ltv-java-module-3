@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Không tìm thấy')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('home')}"></header>
+<section class="product spad">
+    <div class="container" style="padding: 80px 0; text-align: center;">
+        <h3 style="color:#fff;">Không tìm thấy phim</h3>
+        <p><a th:href="@{/movies}">← Về trang chủ</a></p>
+    </div>
+</section>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

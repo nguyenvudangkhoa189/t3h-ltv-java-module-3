@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zxx" xmlns:th="http://www.thymeleaf.org">
+<!-- Fragment bình luận: danh sách + form khách (không đăng nhập) -->
+
+<!-- Danh sách reviews (biến comments = List<CommentModel>) -->
+<div th:fragment="reviewList" class="anime__details__review">
+    <div class="section-title">
+        <h5 th:text="|Bình luận (${#lists.size(comments)})|">Bình luận</h5>
+    </div>
+    <div class="anime__review__item" th:each="c, iter : ${comments}">
+        <div class="anime__review__item__pic">
+            <img th:src="@{/img/anime/review-{n}.jpg(n=${(iter.index % 6) + 1})}" alt="">
+        </div>
+        <div class="anime__review__item__text">
+            <h6>
+                <span th:text="${c.name}">Name</span> -
+                <span th:text="${#temporals.format(c.createdAt, 'dd/MM/yyyy HH:mm')}">Date</span>
+            </h6>
+            <p th:text="${c.message}">Message</p>
+        </div>
+    </div>
+    <p th:if="${#lists.isEmpty(comments)}" style="color:#b7b7b7;">
+        Chưa có bình luận. Hãy là người đầu tiên — không cần đăng nhập!
+    </p>
+</div>
+
+<!-- Form gửi bình luận — postUrl ví dụ: '/movies/detail/' + id -->
+<div th:fragment="commentForm(postUrl)" class="anime__details__form">
+    <div class="section-title">
+        <h5>Viết bình luận</h5>
+    </div>
+    <p style="color:#b7b7b7;font-size:13px;margin-bottom:12px;">Không cần đăng nhập. Chỉ cần tên và nội dung.</p>
+    <p th:if="${message}" th:text="${message}" style="color:#0f0;"></p>
+    <form th:action="${postUrl}" th:object="${commentForm}" method="post">
+        <input type="text" placeholder="Tên của bạn *" th:field="*{name}"
+               style="width:100%;margin-bottom:15px;padding:10px;background:#1d1e39;border:none;color:#fff;">
+        <span style="color:#e53637;" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+        <input type="text" placeholder="Email (không bắt buộc)" th:field="*{email}"
+               style="width:100%;margin-bottom:15px;padding:10px;background:#1d1e39;border:none;color:#fff;">
+        <span style="color:#e53637;" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></span>
+        <textarea placeholder="Nội dung bình luận *" th:field="*{message}"></textarea>
+        <span style="color:#e53637;" th:if="${#fields.hasErrors('message')}" th:errors="*{message}"></span>
+        <button type="submit"><i class="fa fa-location-arrow"></i> Gửi bình luận</button>
+    </form>
+</div>
+
+<!-- Related sidebar trên trang detail -->
+<div th:fragment="relatedSidebar" class="anime__details__sidebar">
+    <div class="section-title">
+        <h5>you might like...</h5>
+    </div>
+    <a class="product__sidebar__view__item set-bg"
+       th:each="r : ${related}"
+       th:href="@{/movies/detail/{id}(id=${r.id})}"
+       th:attr="data-setbg=${r.posterUrl}">
+        <div class="ep" th:text="${r.releaseYear}">2020</div>
+        <div class="view"><i class="fa fa-eye"></i> <span th:text="${r.duration}">90 min</span></div>
+        <h5 th:text="${r.title}">Title</h5>
+    </a>
+</div>
+
+</html>

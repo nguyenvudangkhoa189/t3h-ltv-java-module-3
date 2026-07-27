@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/layout :: head('Admin Dashboard')}"></head>
+<body>
+<div class="admin-shell">
+    <div th:replace="~{admin/fragments/layout :: sidebar('dashboard')}"></div>
+    <main class="admin-main">
+        <h1 class="h3 mb-4">Dashboard thống kê</h1>
+
+        <div class="row g-3 mb-3">
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h2>D1 — Top 7 tháng phim phát hành nhiều nhất</h2>
+                    <p class="small text-muted mb-2">Chỉ đếm Movie; tháng lấy từ date_added (ngày lên nền tảng).</p>
+                    <canvas id="chartMonths" height="160"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h2>D2 — Theo thể loại</h2>
+                    <canvas id="chartGenres" height="160"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h2>D3 — Theo quốc gia</h2>
+                    <canvas id="chartCountries" height="160"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h2>D4 — Top 5 Movie dài nhất</h2>
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Title</th><th>Phút</th></tr></thead>
+                        <tbody>
+                        <tr th:each="r : ${longest}">
+                            <td th:text="${r.title}">Title</td>
+                            <td th:text="${r.durationMinutes}">0</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h2>D5 — Top 5 thêm gần nhất</h2>
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Title</th><th>Date added</th></tr></thead>
+                        <tbody>
+                        <tr th:each="r : ${latest}">
+                            <td th:text="${r.title}">Title</td>
+                            <td th:text="${r.dateAdded}">—</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h2>D6 — Top 10 “phổ biến” (theo đề)</h2>
+                    <p class="small text-muted mb-2">Movie có đạo diễn, ưu tiên năm phát hành mới.</p>
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Title</th><th>Year</th><th>Director</th></tr></thead>
+                        <tbody>
+                        <tr th:each="r : ${popular}">
+                            <td th:text="${r.title}">Title</td>
+                            <td th:text="${r.releaseYear}">0</td>
+                            <td th:text="${r.director}">—</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div th:replace="~{admin/fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const monthLabels = /*[[${monthLabels}]]*/ [];
+    const monthCounts = /*[[${monthCounts}]]*/ [];
+    const genreLabels = /*[[${genreLabels}]]*/ [];
+    const genreCounts = /*[[${genreCounts}]]*/ [];
+    const countryLabels = /*[[${countryLabels}]]*/ [];
+    const countryCounts = /*[[${countryCounts}]]*/ [];
+
+    new Chart(document.getElementById('chartMonths'), {
+        type: 'bar',
+        data: { labels: monthLabels, datasets: [{ label: 'Số phim phát hành', data: monthCounts, backgroundColor: '#38bdf8' }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+    new Chart(document.getElementById('chartGenres'), {
+        type: 'doughnut',
+        data: { labels: genreLabels, datasets: [{ data: genreCounts }] }
+    });
+    new Chart(document.getElementById('chartCountries'), {
+        type: 'bar',
+        data: { labels: countryLabels, datasets: [{ label: 'Titles', data: countryCounts, backgroundColor: '#818cf8' }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+</script>
+</body>
+</html>

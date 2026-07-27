@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zxx" xmlns:th="http://www.thymeleaf.org">
+<!-- Chi tiết phim + bình luận (fragment) + related -->
+<head th:replace="~{fragments/layout :: head('Anime | Details')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: preloader}"></div>
+<header th:replace="~{fragments/layout :: header('categories')}"></header>
+
+<div class="breadcrumb-option">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="breadcrumb__links">
+                    <a th:href="@{/movies}"><i class="fa fa-home"></i> Home</a>
+                    <a th:href="@{/movies/home}">Categories</a>
+                    <span th:text="${movie.genreLabel}">Genre</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="anime-details spad">
+    <div class="container">
+        <div class="anime__details__content">
+            <div class="row">
+                <div class="col-lg-3">
+                    <div class="anime__details__pic set-bg" th:attr="data-setbg=${movie.posterUrl}">
+                        <div class="comment"><i class="fa fa-comments"></i>
+                            <span th:text="${#lists.size(comments)}">0</span></div>
+                        <div class="view"><i class="fa fa-eye"></i>
+                            <span th:text="${movie.duration}">90 min</span></div>
+                    </div>
+                </div>
+                <div class="col-lg-9">
+                    <div class="anime__details__text">
+                        <div class="anime__details__title">
+                            <h3 th:text="${movie.title}">Title</h3>
+                            <span th:text="${movie.subtitle}">Subtitle</span>
+                        </div>
+                        <div class="anime__details__rating">
+                            <div class="rating">
+                                <a href="#"><i class="fa fa-star"></i></a>
+                                <a href="#"><i class="fa fa-star"></i></a>
+                                <a href="#"><i class="fa fa-star"></i></a>
+                                <a href="#"><i class="fa fa-star"></i></a>
+                                <a href="#"><i class="fa fa-star-half-o"></i></a>
+                            </div>
+                            <span th:text="${movie.rating}">Rating</span>
+                        </div>
+                        <p th:text="${movie.description}">Description</p>
+                        <div class="anime__details__widget">
+                            <div class="row">
+                                <div class="col-lg-6 col-md-6">
+                                    <ul>
+                                        <li><span>Type:</span> <th:block th:text="${movie.type}">Movie</th:block></li>
+                                        <li><span>Director:</span> <th:block th:text="${movie.director}">N/A</th:block></li>
+                                        <li><span>Date added:</span> <th:block th:text="${movie.dateAdded}">N/A</th:block></li>
+                                        <li><span>Country:</span> <th:block th:text="${movie.country}">N/A</th:block></li>
+                                        <li><span>Genre:</span> <th:block th:text="${movie.listedIn}">N/A</th:block></li>
+                                    </ul>
+                                </div>
+                                <div class="col-lg-6 col-md-6">
+                                    <ul>
+                                        <li><span>Release year:</span> <th:block th:text="${movie.releaseYear}">2020</th:block></li>
+                                        <li><span>Rating:</span> <th:block th:text="${movie.rating}">N/A</th:block></li>
+                                        <li><span>Duration:</span> <th:block th:text="${movie.duration}">N/A</th:block></li>
+                                        <li><span>Quality:</span> HD</li>
+                                        <li><span>Cast:</span> <th:block th:text="${#strings.abbreviate(movie.cast, 40)}">N/A</th:block></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="anime__details__btn">
+                            <a href="#" class="follow-btn"><i class="fa fa-heart-o"></i> Follow</a>
+                            <a th:href="@{/movies/watching/{id}(id=${movie.id})}" class="watch-btn">
+                                <span>Watch Now</span> <i class="fa fa-angle-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-8 col-md-8">
+                    <div th:replace="~{fragments/comments :: reviewList}"></div>
+                    <div th:replace="~{fragments/comments :: commentForm(@{/movies/detail/{id}(id=${movie.id})})}"></div>
+                </div>
+                <div class="col-lg-4 col-md-4">
+                    <div th:replace="~{fragments/comments :: relatedSidebar}"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: search}"></div>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>
