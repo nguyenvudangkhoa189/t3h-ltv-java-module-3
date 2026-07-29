@@ -352,13 +352,16 @@ Khách xem phim: **không** cần authentication. Admin: cần **cả hai**.
 
 ### 4.2. Session sau khi login — “thẻ tạm”
 
-1. User gửi username + password tới `/login`.
-2. Security kiểm tra (qua `UserDetailsService` + `PasswordEncoder`).
+1. User gửi username + password tới `/login` (POST).
+2. Security kiểm tra: `MongoUserDetailsService` **đọc user từ MongoDB** `users` + `PasswordEncoder.matches`.
 3. Đúng → tạo **HTTP session**, gửi cookie (thường `JSESSIONID`) về trình duyệt.
 4. Request sau kèm cookie → Security biết “đây là admin đã login” → cho vào `/admin/**`.
-5. Logout → hủy session; cookie hết hiệu lực với server.
+5. Logout (POST `/logout`) → hủy session + xóa `SecurityContext`; cookie hết hiệu lực với server.
 
 Bạn **không** tự viết check session trong mọi Controller — khai báo rule một lần trong `SecurityConfig`.
+
+> **Không** hardcode `username` / `password` trong `application.properties` (vd. `app.admin.*` hay `spring.security.user.*`).  
+> Nguồn xác thực khi login = document trong MongoDB. Seeder chỉ **bootstrap lần đầu** (constants trong Java), sau đó đổi mật khẩu bằng cách sửa document / seed lại — không đưa secret vào properties (dễ lộ khi commit git).
 
 ### 4.3. Role và tiền tố `ROLE_`
 
@@ -420,10 +423,10 @@ Default nguy hiểm: `anyRequest().authenticated()` **không** tách public → 
 | Dependency `spring-boot-starter-security`   | Thêm vào `pom.xml` | Kéo filter chain vào app                                                                | Thuê công ty bảo vệ      |
 | `UserModel`                                 | **Tạo mới**        | Document user trong MongoDB                                                             | Hồ sơ nhân viên          |
 | `UserRepository`                            | **Tạo mới**        | `findByUsername`                                                                        | Tra sổ nhân sự           |
-| `MongoUserDetailsService`                   | **Tạo mới**        | Implement `UserDetailsService`: load user → `UserDetails` (username, hash, authorities) | Nhân viên bảo vệ đọc thẻ |
+| `MongoUserDetailsService`                   | **Tạo mới**        | Implement `UserDetailsService`: load user **từ Mongo** → `UserDetails` | Nhân viên bảo vệ đọc thẻ |
 | `PasswordEncoder` (`BCryptPasswordEncoder`) | Bean trong config  | Encode / matches                                                                        | Máy kiểm tra dấu vân tay |
-| `SecurityConfig`                            | **Tạo mới**        | `SecurityFilterChain`: permit/authenticate, formLogin, logout                           | Nội quy tòa nhà          |
-| `AdminUserSeeder`                           | **Tạo mới**        | Nếu chưa có `admin` → tạo + BCrypt                                                      | Cấp thẻ admin lần đầu    |
+| `SecurityConfig`                            | **Tạo mới**        | `SecurityFilterChain`: permit/authenticate, formLogin, logout (+ comment giải thích) | Nội quy tòa nhà          |
+| `AdminUserSeeder`                           | **Tạo mới**        | Nếu chưa có `admin` trong Mongo → tạo + BCrypt (**không** đọc properties) | Cấp thẻ admin lần đầu    |
 | `LoginController`                           | **Tạo mới**        | `GET /login` → `login.html`                                                             | Quầy phát thẻ            |
 | `login.html`                                | **Tạo mới**        | Form `username` / `password` + CSRF                                                     | Tờ đăng nhập             |
 
@@ -438,18 +441,18 @@ Default nguy hiểm: `anyRequest().authenticated()` **không** tách public → 
 | `pom.xml` | **Cập nhật** | Thêm `spring-boot-starter-security` | Bật filter Security |
 | `UserModel` | **Tạo mới** | `username`, `password` (hash), `role`, `enabled` + `@Document("users")` | Lưu tài khoản admin |
 | `UserRepository` | **Tạo mới** | `findByUsername(...)` | Seeder + load user |
-| `MongoUserDetailsService` | **Tạo mới** | `loadUserByUsername` → `UserDetails` + `roles("ADMIN")` | Security đọc user từ Mongo |
-| `SecurityConfig` | **Tạo mới** | `PasswordEncoder` + `SecurityFilterChain` (§4.9) | Rule cửa + login/logout |
-| `AdminUserSeeder` | **Tạo mới** | Nếu chưa có `admin` → `encode` + `save` | Tài khoản test |
+| `MongoUserDetailsService` | **Tạo mới** | `loadUserByUsername` → query Mongo `users` → `UserDetails` | Security đọc user từ Mongo (không từ properties) |
+| `SecurityConfig` | **Tạo mới** | `PasswordEncoder` + `SecurityFilterChain` (§4.9) + giải thích login/logout | Rule cửa + form login/logout |
+| `AdminUserSeeder` | **Tạo mới** | Constants Java seed `admin` nếu chưa có trong Mongo | Bootstrap tài khoản test |
 | `LoginController` | **Tạo mới** | `GET /login` → `login.html` | Không 404 trang login |
 | `templates/login.html` | **Tạo mới** | Form POST `/login`; `?error` / `?logout` | UI đăng nhập |
 | Form comment (Bài 7) | **Cập nhật** (kiểm tra) | Đảm bảo `th:action="@{...}"` | CSRF — POST comment không 403 |
-| `README` | **Cập nhật** | Ghi user/pass admin mặc định | Người khác chạy được |
+| `README` | **Cập nhật** | Ghi user/pass seed + **Mongo `users` là nguồn login** | Người khác chạy được |
 
 
 **Không cần** tạo: `MovieModel`, `CommentModel`, public `MovieViewController` (trừ khi sửa CSRF form).
 
-### 4.9. `SecurityConfig` — ý tưởng cấu hình (đọc hiểu)
+### 4.9. `SecurityConfig` — login / logout chi tiết (đọc hiểu)
 
 Trong `SecurityFilterChain` (Spring Security 6 / Boot 3), thứ tự tư duy:
 
@@ -457,10 +460,55 @@ Trong `SecurityFilterChain` (Spring Security 6 / Boot 3), thứ tự tư duy:
 2. **authorizeHttpRequests**
   - `requestMatchers` public (movies, static, dashmin, login) → `permitAll()`
   - `requestMatchers("/admin/**")` → `hasRole("ADMIN")`
-  - (tuỳ chọn) `anyRequest().permitAll()` hoặc authenticated tùy policy còn lại — **ưu tiên liệt kê rõ**, tránh khóa nhầm public.
+  - (tuỳ chọn) `anyRequest().authenticated()` hoặc `permitAll()` — **ưu tiên liệt kê rõ**, tránh khóa nhầm public.
 3. **formLogin** — `loginPage("/login")`, `defaultSuccessUrl("/admin/dashboard", true)`.
 4. **logout** — `logoutUrl("/logout")`, `logoutSuccessUrl("/login?logout")`.
-5. Gắn `UserDetailsService` + `PasswordEncoder` (Boot thường tự wire nếu chỉ có một bean mỗi loại).
+5. Gắn `UserDetailsService` (Mongo) + `PasswordEncoder` (Boot tự wire nếu chỉ có một bean mỗi loại).
+
+#### Cơ chế LOGIN (form login)
+
+```text
+GET /login  →  LoginController  →  login.html
+POST /login (username, password, _csrf)
+        │
+        ▼
+UsernamePasswordAuthenticationFilter  (trong SecurityFilterChain)
+        │
+        ▼
+AuthenticationManager / DaoAuthenticationProvider
+        │
+        ├─ MongoUserDetailsService.loadUserByUsername(username)
+        │       └─ UserRepository.findByUsername → document Mongo "users"
+        │
+        ├─ PasswordEncoder.matches(raw từ form, BCrypt hash trong DB)
+        │
+        ├─ FAIL  → redirect /login?error
+        └─ OK    → SecurityContext + HTTP session (JSESSIONID)
+                   → redirect /admin/dashboard
+```
+
+Điểm cần nhớ:
+
+- Field form **phải** tên `username` / `password` (chuẩn Security).
+- `loginProcessingUrl` mặc định = `/login` — khớp `th:action="@{/login}"`.
+- **Không** viết `@PostMapping("/login")` trong controller — Security đã xử lý.
+- User/pass **không** lấy từ properties; chỉ từ Mongo qua `UserDetailsService`.
+
+#### Cơ chế LOGOUT
+
+```text
+POST /logout (+ CSRF)
+        │
+        ▼
+LogoutFilter
+        │
+        ├─ invalidate HTTP session
+        ├─ clear SecurityContext
+        └─ redirect /login?logout
+```
+
+- CSRF bật → logout phải là **POST** (form trong sidebar admin), không dùng `GET /logout` thuần.
+- Sau logout, `/admin/**` lại redirect về `/login`.
 
 Pseudo cấu trúc (học viên viết Java thật theo version Boot đang dùng):
 
@@ -470,13 +518,15 @@ http
       .requestMatchers("/", "/movies/**", "/css/**", "/js/**", "/img/**",
                        "/fonts/**", "/videos/**", "/dashmin/**", "/login").permitAll()
       .requestMatchers("/admin/**").hasRole("ADMIN")
-      .anyRequest().permitAll()
+      .anyRequest().authenticated()
   )
   .formLogin(form -> form.loginPage("/login").defaultSuccessUrl("/admin/dashboard", true))
-  .logout(logout -> logout.logoutSuccessUrl("/login?logout"));
+  .logout(logout -> logout.logoutUrl("/logout").logoutSuccessUrl("/login?logout"));
 ```
 
-### 4.10. `UserModel` + seed — field
+> Xem comment Javadoc đầy đủ trong demo `SecurityConfig.java` — giảng viên có thể đọc cùng học viên trên class này.
+
+### 4.10. `UserModel` + seed — field (MongoDB là nguồn thật)
 
 
 | Field      | Kiểu gợi ý   | Mô tả                               |
@@ -488,7 +538,12 @@ http
 | `enabled`  | boolean      | `true` — tắt được tài khoản sau này |
 
 
-`AdminUserSeeder`: nếu `findByUsername("admin").isEmpty()` → tạo mới với `encoder.encode("admin123")`. **Bắt buộc ghi README**; production phải đổi mật khẩu.
+`AdminUserSeeder`: nếu `findByUsername("admin").isEmpty()` → tạo mới với `encoder.encode("admin123")` bằng **constants trong Java** (không `@Value` từ properties). **Bắt buộc ghi README**; production phải đổi mật khẩu trong Mongo.
+
+| Làm đúng | Làm sai |
+| -------- | ------- |
+| Login đọc `users` qua `MongoUserDetailsService` | `spring.security.user.name/password` in-memory mặc định |
+| Seed lần đầu rồi quên properties secret | `app.admin.username` / `app.admin.password` trong `application.properties` |
 
 ### 4.11. Trang login + CSRF trên form public
 
@@ -506,8 +561,9 @@ http
 - [ ] Comment guest POST vẫn chạy (CSRF OK)  
 - [ ] Vào `/admin/dashboard` chưa login → redirect `/login`  
 - [ ] Login sai → ở lại login + thông báo  
-- [ ] Login `admin` đúng → vào dashboard  
+- [ ] Login `admin` đúng (document trong Mongo `users`) → vào dashboard  
 - [ ] Password trong MongoDB là hash BCrypt (không phải `admin123` plain)  
+- [ ] **Không** hardcode user/pass admin trong `application.properties`  
 - [ ] `/dashmin/**` load được CSS (không bị rule `/admin/**` nuốt)  
 
 ---

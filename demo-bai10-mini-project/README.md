@@ -24,7 +24,7 @@ cd demo-bai10-mini-project/java-springboot-bai10
 | http://localhost:8080/admin/dashboard | ADMIN | Thống kê D1–D6 |
 | http://localhost:8080/admin/movies | ADMIN | List / thêm / sửa / xóa |
 
-**Tài khoản mặc định (seed):** `admin` / `admin123` (BCrypt trong MongoDB).
+**Tài khoản admin:** lưu trong MongoDB collection `users` (BCrypt). Lần đầu chạy app, `AdminUserSeeder` tạo `admin` / `admin123` nếu chưa có — **không** hardcode user/pass trong `application.properties`.
 
 ## Quy ước code (giống module 3)
 
